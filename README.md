@@ -15,6 +15,10 @@ yarn add speech-provider
 bun add speech-provider
 ```
 
+## Documentation
+
+Full API documentation is available at [https://osteele.github.io/speech-provider/](https://osteele.github.io/speech-provider/).
+
 ## Usage
 
 ```typescript
