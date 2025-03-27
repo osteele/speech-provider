@@ -1,0 +1,57 @@
+{
+  "name": "speech-provider",
+  "version": "0.1.0",
+  "description": "A unified interface for browser speech synthesis and Eleven Labs voices",
+  "homepage": "https://github.com/osteele/speech-provider",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/osteele/speech-provider.git"
+  },
+  "bugs": {
+    "url": "https://github.com/osteele/speech-provider/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc",
+    "format": "biome format --write src/",
+    "lint": "biome check src/",
+    "lint:fix": "biome check --apply-unsafe src/",
+    "typecheck": "biome check src/ && tsc --noEmit",
+    "test": "bun test",
+    "prepare": "husky",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": [
+    "speech-synthesis",
+    "eleven-labs",
+    "tts",
+    "voice"
+  ],
+  "devDependencies": {
+    "@biomejs/biome": "1.5.3",
+    "@types/web": "^0.0.140",
+    "bun-types": "latest",
+    "husky": "^9.1.7",
+    "typescript": "^5.4.2"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  }
+}
