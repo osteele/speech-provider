@@ -1,0 +1,25 @@
+{
+  "entryPoints": ["src/index.ts"],
+  "out": "docs",
+  "name": "Speech Provider",
+  "includeVersion": true,
+  "readme": "README.md",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeExternals": true,
+  "visibilityFilters": {
+    "protected": false,
+    "private": false,
+    "inherited": true,
+    "external": false
+  },
+  "theme": "default",
+  "lang": "en",
+  "plugin": [],
+  "githubPages": false,
+  "sort": ["static-first", "alphabetical"],
+  "searchInComments": true,
+  "navigationLinks": {
+    "GitHub": "https://github.com/osteele/speech-provider"
+  }
+}

@@ -22,7 +22,11 @@
     "typecheck": "biome check src/ && tsc --noEmit",
     "test": "bun test",
     "prepare": "husky",
-    "prepublishOnly": "bun run build"
+    "prepublishOnly": "bun run build",
+    "docs": "typedoc",
+    "docs:watch": "nodemon",
+    "docs:serve": "live-server docs --port=8080 --no-browser",
+    "docs:dev": "concurrently \"bun run docs:watch\" \"bun run docs:serve\""
   },
   "keywords": [
     "speech-synthesis",
@@ -34,7 +38,11 @@
     "@biomejs/biome": "1.5.3",
     "@types/web": "^0.0.140",
     "bun-types": "latest",
+    "concurrently": "^9.1.2",
     "husky": "^9.1.7",
+    "live-server": "^1.2.2",
+    "nodemon": "^3.1.9",
+    "typedoc": "^0.28.1",
     "typescript": "^5.4.2"
   },
   "dependencies": {
