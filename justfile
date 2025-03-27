@@ -23,3 +23,7 @@ fix: format
 # Run tests
 test:
     bun test
+
+# Generate API documentation
+docs:
+    bun run docs

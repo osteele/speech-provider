@@ -1,0 +1,6 @@
+{
+  "watch": ["src/**/*.ts", "README.md", "typedoc.json"],
+  "ext": "ts,md,json",
+  "ignore": ["src/**/*.spec.ts", "node_modules", "dist", "docs"],
+  "exec": "bun run typedoc"
+}
