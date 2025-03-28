@@ -27,12 +27,8 @@
  */
 
 // Export main interfaces and functions
-export {
-  VoiceProvider,
-  Voice,
-  Utterance,
-  getVoiceProvider,
-} from "./VoiceProvider";
+export { getVoiceProvider } from "./VoiceProvider";
+export type { VoiceProvider, Voice, Utterance } from "./VoiceProvider";
 
 // Export browser voice provider
 export {
@@ -48,4 +44,4 @@ export {
   ElevenLabsUtterance,
   ElevenLabsVoiceProvider,
 } from "./ElevenLabsVoiceProvider";
-export { ElevenLabsVoiceData } from "./ElevenLabsTypes";
+export type { ElevenLabsVoiceData } from "./ElevenLabsTypes";

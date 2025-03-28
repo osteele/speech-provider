@@ -36,7 +36,7 @@
     "lint:fix": "biome check --apply-unsafe src/",
     "typecheck": "biome check src/ && tsc --noEmit",
     "test": "bun test",
-    "prepare": "husky",
+    "prepare": "node -e \"if (!process.env.npm_config_user_agent?.includes('npm') && !process.env.npm_config_user_agent?.includes('bun')) process.exit(require('child_process').spawnSync('husky', { stdio: 'inherit' }).status)\"",
     "prepublishOnly": "bun run build",
     "docs": "typedoc",
     "docs:watch": "nodemon",
