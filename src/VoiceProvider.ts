@@ -1,5 +1,8 @@
 import { browserVoiceProvider } from "./BrowserVoiceProvider";
-import { createElevenLabsVoiceProvider } from "./ElevenLabsVoiceProvider";
+import {
+  ELEVEN_LABS_BASE_URL,
+  createElevenLabsVoiceProvider,
+} from "./ElevenLabsVoiceProvider";
 
 /**
  * Interface for a voice provider that can synthesize speech.
@@ -72,14 +75,23 @@ export interface Utterance {
 
 /**
  * Get the appropriate voice provider based on available API keys.
- * @param apiKeys - Object containing API keys for various providers
+ * @param options - Configuration options for the voice provider
+ * @param options.elevenLabsApiKey - API key for Eleven Labs (if available)
+ * @param options.cacheMaxAge - Maximum age of cached responses in seconds (default: 1 hour)
  * @returns A voice provider instance
  */
-export function getVoiceProvider(apiKeys: {
-  elevenLabs?: string | null;
+export function getVoiceProvider(options: {
+  elevenLabsApiKey?: string | null;
+  cacheMaxAge?: number;
 }): VoiceProvider {
-  if (apiKeys.elevenLabs) {
-    return createElevenLabsVoiceProvider(apiKeys.elevenLabs);
+  if (options.elevenLabsApiKey) {
+    return createElevenLabsVoiceProvider(
+      options.elevenLabsApiKey,
+      ELEVEN_LABS_BASE_URL,
+      {
+        cacheMaxAge: options.cacheMaxAge,
+      },
+    );
   }
   return browserVoiceProvider;
 }

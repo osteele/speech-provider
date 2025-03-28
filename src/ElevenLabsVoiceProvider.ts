@@ -9,8 +9,8 @@ import {
   printDistinctPropertyValues,
 } from "./utils/debugging";
 
-/** The base URL for the ElevenLabs API */
-const ELEVEN_LABS_BASE_URL = "https://api.elevenlabs.io/v1";
+/** The base URL for the Eleven Labs API */
+export const ELEVEN_LABS_BASE_URL = "https://api.elevenlabs.io/v1";
 
 /**
  * A voice provider that uses the ElevenLabs API for high-quality text-to-speech.
@@ -32,6 +32,7 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
   private baseUrl: string;
   private validateResponses: boolean;
   private printVoiceProperties: boolean;
+  private cacheMaxAge: number | null;
 
   /**
    * Create a new ElevenLabs voice provider.
@@ -40,6 +41,7 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
    * @param options - Additional options for the provider
    * @param options.validateResponses - Whether to validate API responses against the schema
    * @param options.printVoiceProperties - Whether to print voice properties for debugging
+   * @param options.cacheMaxAge - Maximum age of cached responses in seconds (default: 1 hour). Set to null to disable caching.
    */
   constructor(
     apiKey: string,
@@ -47,12 +49,14 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
     options: {
       validateResponses?: boolean;
       printVoiceProperties?: boolean;
+      cacheMaxAge?: number | null;
     } = {},
   ) {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
     this.validateResponses = options.validateResponses || false;
     this.printVoiceProperties = options.printVoiceProperties || false;
+    this.cacheMaxAge = options.cacheMaxAge ?? 3600; // Default to 1 hour, null to disable
   }
 
   /**
@@ -103,7 +107,8 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
     );
 
     return (voices.length >= minVoices ? voices : data.voices).map(
-      (voice) => new ElevenLabsVoice(this.apiKey, voice, this),
+      (voice) =>
+        new ElevenLabsVoice(this.apiKey, voice, this, this.cacheMaxAge),
     );
   }
 
@@ -127,6 +132,7 @@ export class ElevenLabsVoice implements Voice {
     private apiKey: string,
     private voiceData: ElevenLabsVoiceData,
     public provider: VoiceProvider,
+    private cacheMaxAge: number | null = 3600, // Default to 1 hour, null to disable
   ) {}
 
   /** The language code for the voice */
@@ -166,6 +172,7 @@ export class ElevenLabsVoice implements Voice {
       this.voiceData.voice_id,
       this.voiceData.labels.language,
       text,
+      this.cacheMaxAge,
     );
   }
 }
@@ -177,13 +184,17 @@ export class ElevenLabsUtterance implements Utterance {
   private audio: HTMLAudioElement | null = null;
   private onStartCallback: (() => void) | null = null;
   private onEndCallback: (() => void) | null = null;
+  private cacheMaxAge: number | null;
 
   constructor(
     private apiKey: string,
     private voiceId: string,
     private languageCode: string,
     private text: string,
-  ) {}
+    cacheMaxAge: number | null = 3600, // Default to 1 hour, null to disable
+  ) {
+    this.cacheMaxAge = cacheMaxAge;
+  }
 
   /**
    * Start speaking the utterance by fetching audio from ElevenLabs and playing it.
@@ -196,13 +207,15 @@ export class ElevenLabsUtterance implements Utterance {
         headers: {
           "xi-api-key": this.apiKey,
           "Content-Type": "application/json",
-          "Cache-Control": "max-age=604800", // one week
         },
         body: JSON.stringify({
           model_id: "eleven_turbo_v2_5",
           language_code: this.languageCode,
           text: this.text,
         }),
+        cacheOptions: {
+          maxAge: this.cacheMaxAge,
+        },
       },
     );
 
@@ -234,14 +247,22 @@ export class ElevenLabsUtterance implements Utterance {
 }
 
 /**
- * Create a new ElevenLabs voice provider.
- * @param apiKey - Your ElevenLabs API key
+ * Create a new Eleven Labs voice provider.
+ * @param apiKey - Your Eleven Labs API key
+ * @param baseUrl - The base URL for the Eleven Labs API (defaults to the official API)
  * @param options - Additional options for the provider
  * @param options.validateResponses - Whether to validate API responses against the schema
  * @param options.printVoiceProperties - Whether to print voice properties for debugging
- * @returns A new ElevenLabs voice provider instance
+ * @param options.cacheMaxAge - Maximum age of cached responses in seconds (default: 1 hour). Set to null to disable caching.
  */
-export const createElevenLabsVoiceProvider = (
+export function createElevenLabsVoiceProvider(
   apiKey: string,
-  options?: { validateResponses?: boolean; printVoiceProperties?: boolean },
-) => new ElevenLabsVoiceProvider(apiKey, ELEVEN_LABS_BASE_URL, options);
+  baseUrl: string = ELEVEN_LABS_BASE_URL,
+  options: {
+    validateResponses?: boolean;
+    printVoiceProperties?: boolean;
+    cacheMaxAge?: number | null;
+  } = {},
+): VoiceProvider {
+  return new ElevenLabsVoiceProvider(apiKey, baseUrl, options);
+}

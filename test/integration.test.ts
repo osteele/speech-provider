@@ -9,12 +9,12 @@ describe("getVoiceProvider", () => {
   });
 
   test("returns browserVoiceProvider when elevenLabs API key is null", () => {
-    const provider = getVoiceProvider({ elevenLabs: null });
+    const provider = getVoiceProvider({ elevenLabsApiKey: null });
     expect(provider).toBe(browserVoiceProvider);
   });
 
   test("returns ElevenLabsVoiceProvider when elevenLabs API key is provided", () => {
-    const provider = getVoiceProvider({ elevenLabs: "fake-api-key" });
+    const provider = getVoiceProvider({ elevenLabsApiKey: "fake-api-key" });
     expect(provider.name).toBe("ElevenLabs");
   });
 });
