@@ -61,6 +61,14 @@ if (defaultVoice) {
 - Automatic caching of Eleven Labs API responses to reduce API calls
 - Configurable cache duration for Eleven Labs responses
 
+## Used In
+
+This package is used in [Mandarin Sentence
+Practice](https://mandarin-sentence-practice.osteele.com), a web application for
+practicing Mandarin Chinese with listening and translation exercises. The app
+uses this package to provide high-quality text-to-speech for Mandarin sentences,
+with automatic fallback to browser voices when Eleven Labs is not available.
+
 ## API
 
 ### `getVoiceProvider(options)`
