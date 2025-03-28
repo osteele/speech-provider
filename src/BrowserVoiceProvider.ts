@@ -6,6 +6,8 @@ import { Utterance, Voice, VoiceProvider } from "./VoiceProvider";
  */
 export class BrowserVoiceProvider implements VoiceProvider {
   name = "Browser";
+  private voicesInitialized = false;
+  private voicesReadyPromise: Promise<void> | null = null;
 
   /**
    * Get available voices for a given language code.
@@ -21,9 +23,75 @@ export class BrowserVoiceProvider implements VoiceProvider {
     lang: string;
     minVoices: number;
   }): Promise<BrowserSpeechSynthesisVoice[]> {
-    return this.getBrowserVoicesForLanguage(lang, minVoices).map(
+    // Ensure voices are loaded before trying to filter them
+    await this.ensureVoicesLoaded();
+
+    const filteredVoices = this.getBrowserVoicesForLanguage(lang, minVoices);
+
+    return filteredVoices.map(
       (voice) => new BrowserSpeechSynthesisVoice(voice, voice.lang, this),
     );
+  }
+
+  /**
+   * Ensures that the browser's speech synthesis voices are loaded.
+   * In some browsers, especially Chrome, voices are loaded asynchronously.
+   */
+  private async ensureVoicesLoaded(): Promise<void> {
+    if (this.voicesInitialized) {
+      return;
+    }
+
+    if (typeof window === "undefined" || !window.speechSynthesis) {
+      this.voicesInitialized = true;
+      return;
+    }
+
+    // Check if voices are already available
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      this.voicesInitialized = true;
+      return;
+    }
+
+    // If voices aren't available yet, wait for them to load
+    if (!this.voicesReadyPromise) {
+      this.voicesReadyPromise = new Promise<void>((resolve) => {
+        // Some browsers (especially Chrome) load voices asynchronously
+        if ("onvoiceschanged" in window.speechSynthesis) {
+          const handleVoicesChanged = () => {
+            this.voicesInitialized = true;
+            window.speechSynthesis.removeEventListener(
+              "voiceschanged",
+              handleVoicesChanged,
+            );
+            resolve();
+          };
+
+          window.speechSynthesis.addEventListener(
+            "voiceschanged",
+            handleVoicesChanged,
+          );
+
+          // Add a timeout to avoid hanging forever
+          setTimeout(() => {
+            if (!this.voicesInitialized) {
+              this.voicesInitialized = true;
+              window.speechSynthesis.removeEventListener(
+                "voiceschanged",
+                handleVoicesChanged,
+              );
+              resolve();
+            }
+          }, 2000);
+        } else {
+          this.voicesInitialized = true;
+          resolve();
+        }
+      });
+    }
+
+    return this.voicesReadyPromise;
   }
 
   /**
@@ -61,12 +129,27 @@ export class BrowserVoiceProvider implements VoiceProvider {
     }
 
     const allVoices = window.speechSynthesis.getVoices();
+
+    // Try exact match first
     const exactMatch = allVoices.filter((voice) => voice.lang === lang);
 
     if (exactMatch.length >= minVoices) {
       return exactMatch;
     }
 
+    // If the language has a region code (contains '-'), try matching just the language part
+    if (lang.includes("-")) {
+      const baseLanguage = lang.replace(/-.+/, "");
+      const baseMatches = allVoices.filter(
+        (voice) => voice.lang.replace(/-.+/, "") === baseLanguage,
+      );
+
+      if (baseMatches.length >= minVoices) {
+        return baseMatches;
+      }
+    }
+
+    // Fall back to prefix match using first two characters
     const languageMatch = allVoices.filter((voice) =>
       voice.lang.startsWith(lang.slice(0, 2)),
     );
