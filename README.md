@@ -71,13 +71,13 @@ with automatic fallback to browser voices when Eleven Labs is not available.
 
 ## Examples
 
-The package includes an interactive demo in the `examples` directory that
-demonstrates both browser and Eleven Labs voice providers. To run it:
+The package includes an interactive example in the `examples` directory that demonstrates both browser and Eleven Labs voice providers. To run it:
 
-1. Open `examples/dmeo.html` directly in a browser, or
-2. Run `bunx serve examples` and open http://localhost:3000/demo.html
+1. View the [live demo](https://osteele.github.io/speech-provider/examples/demo.html), or
+2. Open `examples/demo.html` directly in a browser, or
+3. Run `bunx serve examples` and open http://localhost:3000/demo.html
 
-The demo includes:
+The example includes:
 - API key management for Eleven Labs
 - Provider selection (Browser/Eleven Labs)
 - Language selection with system language detection

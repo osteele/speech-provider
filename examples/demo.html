@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Speech Provider Demo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+
+    .container {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      margin-top: 0;
+      color: #333;
+    }
+
+    .section {
+      margin-bottom: 2rem;
+    }
+
+    .section h2 {
+      color: #444;
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+    }
+
+    .api-key {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    input[type="password"] {
+      flex: 1;
+      padding: 0.5rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+      min-width: 300px;
+    }
+
+    .api-key-info {
+      font-size: 0.9rem;
+      color: #666;
+      margin-top: 0.5rem;
+    }
+
+    .api-key-info a {
+      color: #007AFF;
+      text-decoration: none;
+    }
+
+    .api-key-info a:hover {
+      text-decoration: underline;
+    }
+
+    button {
+      background: #007AFF;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .provider-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .providers {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .provider {
+      padding: 0.5rem 1rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      background: white;
+    }
+
+    .provider.selected {
+      background: #007AFF;
+      color: white;
+      border-color: #007AFF;
+    }
+
+    select {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .voice-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .voice {
+      padding: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .voice:hover {
+      background: #f0f0f0;
+    }
+
+    .voice.selected {
+      background: #e3f2fd;
+      border-color: #007AFF;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 0.5rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      resize: vertical;
+    }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .status {
+      color: #666;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Speech Provider Demo</h1>
+
+    <div class="section">
+      <h2>Eleven Labs API Key</h2>
+      <div class="api-key">
+        <input type="password" id="apiKey" placeholder="Enter your Eleven Labs API key">
+        <button id="saveKey">Save</button>
+      </div>
+      <div class="api-key-info">
+        Get an API key from <a href="https://elevenlabs.io" target="_blank" rel="noopener">Eleven Labs</a>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Voice Provider</h2>
+      <div class="provider-controls">
+        <div class="providers" id="providers"></div>
+        <button id="speakTop">Speak</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Language</h2>
+      <select id="languages" aria-label="Select language"></select>
+    </div>
+
+    <div class="section">
+      <h2>Voice</h2>
+      <div class="voice-list" id="voices"></div>
+    </div>
+
+    <div class="section">
+      <h2>Text to Speak</h2>
+      <textarea id="text" placeholder="Enter text to speak..."></textarea>
+      <div class="controls">
+        <button id="speak">Speak</button>
+        <button id="stop">Stop</button>
+      </div>
+    </div>
+
+    <div class="status" id="status"></div>
+  </div>
+
+  <script type="module" src="demo.js"></script>
+</body>
+
+</html>

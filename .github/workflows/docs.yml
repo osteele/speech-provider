@@ -26,6 +26,11 @@ jobs:
       - name: Build documentation
         run: bun run docs
 
+      - name: Copy examples to docs
+        run: |
+          mkdir -p docs/examples
+          cp examples/* docs/examples/
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
