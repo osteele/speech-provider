@@ -58,7 +58,7 @@ if (defaultVoice) {
 - Typesafe API with TypeScript support
 - Simple voice selection by language
 - Event listeners for speech start and end events
-- Automatic caching of Eleven Labs API responses to reduce API calls
+- Efficient caching of Eleven Labs API responses using the browser's Cache API
 - Configurable cache duration for Eleven Labs responses
 
 ## Used In
@@ -78,7 +78,7 @@ Creates a voice provider based on the available API keys. Falls back to browser 
 ```typescript
 function getVoiceProvider(options: {
   elevenLabsApiKey?: string | null;
-  cacheMaxAge?: number; // Cache duration in seconds (default: 1 hour)
+  cacheMaxAge?: number | null; // Cache duration in seconds (default: 1 hour). Set to null to disable caching.
 }): VoiceProvider;
 ```
 
@@ -89,23 +89,25 @@ Creates an Eleven Labs voice provider with optional configuration.
 ```typescript
 function createElevenLabsVoiceProvider(
   apiKey: string,
+  baseUrl?: string,
   options?: {
     validateResponses?: boolean;
     printVoiceProperties?: boolean;
-    cacheMaxAge?: number; // Cache duration in seconds (default: 1 hour)
+    cacheMaxAge?: number | null; // Cache duration in seconds (default: 1 hour). Set to null to disable caching.
   }
 ): VoiceProvider;
 ```
 
 ### Caching
 
-The library implements automatic caching for Eleven Labs API responses:
+The library implements efficient caching for Eleven Labs API responses using the browser's Cache API:
 
 - Browser voices are cached automatically by the browser's speech synthesis engine
-- Eleven Labs responses are cached using IndexedDB with a default duration of 1 hour
+- Eleven Labs responses are cached using the browser's Cache API with a default duration of 1 hour
 - Cache duration can be configured when creating the provider
 - Cached responses are automatically invalidated after the specified duration
 - Cache can be disabled by setting `cacheMaxAge: null` in the provider options
+- The Cache API provides better performance than IndexedDB for network requests
 
 Examples of cache configuration:
 ```typescript
@@ -175,4 +177,4 @@ interface Utterance {
 
 Copyright 2025 by Oliver Steele
 
-Available under the MIT License
+MIT

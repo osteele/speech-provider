@@ -6,14 +6,8 @@ interface CachedFetchOptions extends RequestInit {
   };
 }
 
-interface CacheEntry {
-  timestamp: number;
-  blob: Blob;
-  headers: Record<string, string>;
-}
-
 /**
- * Enhanced fetch function that supports client-side response caching using IndexedDB.
+ * Enhanced fetch function that supports client-side response caching using the Cache API.
  * Responses are cached based on the URL and request options.
  *
  * @param url The URL to fetch
@@ -70,16 +64,18 @@ export async function cachedFetch(
   });
 
   try {
-    // Try to get from cache first
-    const cachedResponse = await getFromCache(cacheKey);
-    if (cachedResponse) {
-      const entry = cachedResponse as CacheEntry;
-      const age = (Date.now() - entry.timestamp) / 1000; // Convert to seconds
+    // Open the cache
+    const cache = await caches.open("speech-provider-cache");
 
-      if (age < maxAge) {
-        return new Response(entry.blob, {
-          headers: entry.headers,
-        });
+    // Try to get from cache first
+    const cachedResponse = await cache.match(cacheKey);
+    if (cachedResponse) {
+      const timestamp = cachedResponse.headers.get("x-cache-timestamp");
+      if (timestamp) {
+        const age = (Date.now() - parseInt(timestamp, 10)) / 1000; // Convert to seconds
+        if (age < maxAge) {
+          return cachedResponse;
+        }
       }
     }
 
@@ -91,14 +87,20 @@ export async function cachedFetch(
 
     // Clone the response before caching (responses can only be read once)
     const responseToCache = response.clone();
-    const blob = await responseToCache.blob();
 
-    // Cache the response data
-    await cacheResponse(cacheKey, {
-      timestamp: Date.now(),
-      blob,
-      headers: Object.fromEntries(responseToCache.headers.entries()),
+    // Add cache timestamp header
+    const headersWithTimestamp = new Headers(responseToCache.headers);
+    headersWithTimestamp.set("x-cache-timestamp", Date.now().toString());
+
+    // Create a new response with the timestamp header
+    const responseWithTimestamp = new Response(responseToCache.body, {
+      status: responseToCache.status,
+      statusText: responseToCache.statusText,
+      headers: headersWithTimestamp,
     });
+
+    // Cache the response
+    await cache.put(cacheKey, responseWithTimestamp);
 
     return response;
   } catch (error) {
@@ -109,49 +111,4 @@ export async function cachedFetch(
       headers,
     });
   }
-}
-
-// IndexedDB setup
-const DB_NAME = "speech-provider-cache";
-const STORE_NAME = "responses";
-const DB_VERSION = 1;
-
-async function getDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
-      }
-    };
-  });
-}
-
-async function getFromCache(key: string): Promise<CacheEntry | null> {
-  const db = await getDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, "readonly");
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.get(key);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-  });
-}
-
-async function cacheResponse(key: string, entry: CacheEntry): Promise<void> {
-  const db = await getDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, "readwrite");
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.put(entry, key);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve();
-  });
 }
