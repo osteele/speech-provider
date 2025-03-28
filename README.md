@@ -69,6 +69,22 @@ practicing Mandarin Chinese with listening and translation exercises. The app
 uses this package to provide high-quality text-to-speech for Mandarin sentences,
 with automatic fallback to browser voices when Eleven Labs is not available.
 
+## Examples
+
+The package includes an interactive demo in the `examples` directory that
+demonstrates both browser and Eleven Labs voice providers. To run it:
+
+1. Open `examples/dmeo.html` directly in a browser, or
+2. Run `bunx serve examples` and open http://localhost:3000/demo.html
+
+The demo includes:
+- API key management for Eleven Labs
+- Provider selection (Browser/Eleven Labs)
+- Language selection with system language detection
+- Voice selection with descriptions
+- Example sentences in multiple languages
+- Text-to-speech controls
+
 ## API
 
 ### `getVoiceProvider(options)`
