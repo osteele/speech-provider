@@ -18,6 +18,7 @@ const exampleSentences = {
 // DOM Elements
 const apiKeyInput = document.getElementById('apiKey');
 const saveKeyButton = document.getElementById('saveKey');
+const normalizeVolumeCheckbox = document.getElementById('normalizeVolume');
 const providersDiv = document.getElementById('providers');
 const languagesSelect = document.getElementById('languages');
 const voicesDiv = document.getElementById('voices');
@@ -32,16 +33,24 @@ let currentProvider = null;
 let currentVoice = null;
 let currentUtterance = null;
 
-// Load saved API key
+// Load saved API key and settings
 const savedApiKey = localStorage.getItem('elevenLabsApiKey');
+const savedNormalizeVolume = localStorage.getItem('normalizeVolume') === 'true';
 if (savedApiKey) {
   apiKeyInput.value = savedApiKey;
 }
+normalizeVolumeCheckbox.checked = savedNormalizeVolume;
 
 // Initialize voice provider
 function initVoiceProvider() {
   const apiKey = apiKeyInput.value || null;
-  currentProvider = getVoiceProvider({ elevenLabsApiKey: apiKey });
+  const normalizeVolume = normalizeVolumeCheckbox.checked;
+
+  currentProvider = getVoiceProvider({
+    elevenLabsApiKey: apiKey,
+    normalizeVolume: normalizeVolume
+  });
+
   updateProviders();
   // Select browser provider by default
   selectProvider('Browser');
@@ -76,16 +85,28 @@ async function selectProvider(name) {
       el.classList.toggle('selected', el.textContent === name);
     });
 
+    // Clear voices list while we load new data
+    voicesDiv.innerHTML = '<div class="voice">Loading voices...</div>';
+
     // Update provider
     const isElevenLabs = name.trim() === 'Eleven Labs';
     const apiKey = isElevenLabs ? apiKeyInput.value : null;
-    currentProvider = getVoiceProvider({ elevenLabsApiKey: apiKey });
+    const normalizeVolume = normalizeVolumeCheckbox.checked;
+
+    currentProvider = getVoiceProvider({
+      elevenLabsApiKey: apiKey,
+      normalizeVolume: normalizeVolume
+    });
+
+    // Update status
+    statusDiv.textContent = `Using ${name} voice provider`;
 
     // Update languages
     await updateLanguages();
   } catch (error) {
     console.error('Error selecting provider:', error);
     statusDiv.textContent = `Error initializing ${name} provider`;
+    voicesDiv.innerHTML = '<div class="voice">Error loading voices</div>';
   }
 }
 
@@ -121,25 +142,40 @@ async function updateLanguages() {
       throw new Error('No voices available. Please check your API key if using Eleven Labs.');
     }
 
+    // Create language objects with display names for sorting
+    const displayNameFormatter = new Intl.DisplayNames(['en'], { type: 'language' });
+    const languageOptions = Array.from(languages).map(lang => ({
+      code: lang,
+      displayName: displayNameFormatter.of(lang)
+    }));
+
+    // Sort languages by display name
+    languageOptions.sort((a, b) => a.displayName.localeCompare(b.displayName));
+
     // Update select element
     languagesSelect.innerHTML = '';
-    const sortedLangs = Array.from(languages).sort();
 
     // Add system language first if available
     const systemLang = navigator.language.split('-')[0];
-    if (sortedLangs.includes(systemLang)) {
+    if (languages.has(systemLang)) {
       const option = document.createElement('option');
       option.value = systemLang;
-      option.textContent = new Intl.DisplayNames(['en'], { type: 'language' }).of(systemLang);
+      option.textContent = displayNameFormatter.of(systemLang);
       languagesSelect.appendChild(option);
+
+      // Add a separator if we have the system language
+      const separator = document.createElement('option');
+      separator.disabled = true;
+      separator.textContent = '──────────';
+      languagesSelect.appendChild(separator);
     }
 
-    // Add other languages
-    sortedLangs.forEach(lang => {
-      if (lang !== systemLang) {
+    // Add other languages sorted by display name
+    languageOptions.forEach(lang => {
+      if (lang.code !== systemLang) {
         const option = document.createElement('option');
-        option.value = lang;
-        option.textContent = new Intl.DisplayNames(['en'], { type: 'language' }).of(lang);
+        option.value = lang.code;
+        option.textContent = lang.displayName;
         languagesSelect.appendChild(option);
       }
     });
@@ -283,34 +319,56 @@ async function selectVoice(voice) {
   await speakText(voice);
 }
 
-// Event Listeners
-saveKeyButton.onclick = () => {
-  const apiKey = apiKeyInput.value.trim();
-  if (apiKey) {
-    localStorage.setItem('elevenLabsApiKey', apiKey);
-    initVoiceProvider();
-    statusDiv.textContent = 'API key saved';
-  } else {
-    localStorage.removeItem('elevenLabsApiKey');
-    initVoiceProvider();
-    statusDiv.textContent = 'API key removed';
-  }
-};
+// Set up event listeners
+function setupEventListeners() {
+  // Save API key
+  saveKeyButton.onclick = () => {
+    const apiKey = apiKeyInput.value.trim();
+    if (apiKey) {
+      localStorage.setItem('elevenLabsApiKey', apiKey);
+      localStorage.setItem('normalizeVolume', normalizeVolumeCheckbox.checked);
+      initVoiceProvider();
+      statusDiv.textContent = 'API key saved';
+    } else {
+      localStorage.removeItem('elevenLabsApiKey');
+      localStorage.setItem('normalizeVolume', normalizeVolumeCheckbox.checked);
+      initVoiceProvider();
+      statusDiv.textContent = 'API key removed';
+    }
+  };
 
-languagesSelect.onchange = updateVoices;
+  // Volume normalization handler
+  normalizeVolumeCheckbox.onchange = () => {
+    const normalizeValue = normalizeVolumeCheckbox.checked;
+    localStorage.setItem('normalizeVolume', normalizeValue);
 
-speakButton.onclick = () => speakText(currentVoice);
-speakTopButton.onclick = () => speakText(currentVoice);
+    // Update setting on the provider without reloading everything
+    if (currentProvider && currentProvider.name === 'ElevenLabs') {
+      currentProvider.normalizeVolume = normalizeValue;
+      statusDiv.textContent = normalizeValue
+        ? 'Volume normalization enabled'
+        : 'Volume normalization disabled';
+    }
+  };
 
-stopButton.onclick = () => {
-  if (currentUtterance) {
-    currentUtterance.stop();
-    statusDiv.textContent = 'Stopped speaking';
-    speakButton.disabled = false;
-    speakTopButton.disabled = false;
-    stopButton.disabled = true;
-  }
-};
+  // Language selection
+  languagesSelect.onchange = updateVoices;
 
-// Initialize
-initVoiceProvider();
+  // Speaking controls
+  speakButton.onclick = () => speakText(currentVoice);
+  speakTopButton.onclick = () => speakText(currentVoice);
+
+  // Stop speaking
+  stopButton.onclick = () => {
+    if (currentUtterance) {
+      currentUtterance.stop();
+      statusDiv.textContent = 'Stopped speaking';
+      speakButton.disabled = false;
+      speakTopButton.disabled = false;
+      stopButton.disabled = true;
+    }
+  };
+}
+
+// Start the application
+initApp();

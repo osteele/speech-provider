@@ -36,6 +36,12 @@ const provider = getVoiceProvider({
   cacheMaxAge: 86400 // Cache for 1 day
 });
 
+// Use Eleven Labs with volume normalization
+const provider = getVoiceProvider({
+  elevenLabsApiKey: 'your-api-key',
+  normalizeVolume: true // Enable volume normalization
+});
+
 // Get voices for a specific language
 const voices = await provider.getVoices({ lang: 'en-US', minVoices: 1 });
 
@@ -60,6 +66,7 @@ if (defaultVoice) {
 - Event listeners for speech start and end events
 - Efficient caching of Eleven Labs API responses using the browser's Cache API
 - Configurable cache duration for Eleven Labs responses
+- Audio volume normalization for Eleven Labs voices to ensure consistent volume levels
 
 ## Used In
 
@@ -84,6 +91,7 @@ The example includes:
 - Voice selection with descriptions
 - Example sentences in multiple languages
 - Text-to-speech controls
+- Volume normalization for Eleven Labs voices
 
 ## API
 
@@ -95,6 +103,7 @@ Creates a voice provider based on the available API keys. Falls back to browser 
 function getVoiceProvider(options: {
   elevenLabsApiKey?: string | null;
   cacheMaxAge?: number | null; // Cache duration in seconds (default: 1 hour). Set to null to disable caching.
+  normalizeVolume?: boolean; // Enable volume normalization for Eleven Labs voices (default: false)
 }): VoiceProvider;
 ```
 
@@ -110,6 +119,7 @@ function createElevenLabsVoiceProvider(
     validateResponses?: boolean;
     printVoiceProperties?: boolean;
     cacheMaxAge?: number | null; // Cache duration in seconds (default: 1 hour). Set to null to disable caching.
+    normalizeVolume?: boolean; // Enable volume normalization for more consistent audio levels (default: false)
   }
 ): VoiceProvider;
 ```
@@ -152,6 +162,36 @@ const provider = getVoiceProvider({
 const provider = getVoiceProvider({
   elevenLabsApiKey: 'your-api-key',
   cacheMaxAge: 0
+});
+```
+
+### Volume Normalization
+
+The library includes a volume normalization feature for Eleven Labs voices to ensure consistent audio levels:
+
+- Automatically normalizes audio volume during playback using the Web Audio API
+- Helps maintain consistent volume levels across different voices and utterances
+- Uses a dynamics compressor to balance loud and quiet sections of audio
+- Can be enabled by setting `normalizeVolume: true` in the provider options
+
+Examples of volume normalization configuration:
+```typescript
+// Enable volume normalization
+const provider = getVoiceProvider({
+  elevenLabsApiKey: 'your-api-key',
+  normalizeVolume: true
+});
+
+// Enable volume normalization with custom cache settings
+const provider = getVoiceProvider({
+  elevenLabsApiKey: 'your-api-key',
+  normalizeVolume: true,
+  cacheMaxAge: 86400 // 24 hours in seconds
+});
+
+// Direct use with ElevenLabsVoiceProvider
+const provider = createElevenLabsVoiceProvider('your-api-key', undefined, {
+  normalizeVolume: true
 });
 ```
 

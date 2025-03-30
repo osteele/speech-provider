@@ -18,21 +18,49 @@ export const ELEVEN_LABS_BASE_URL = "https://api.elevenlabs.io/v1";
  *
  * @example
  * ```typescript
+ * // Basic usage
  * const provider = createElevenLabsVoiceProvider("your-api-key");
  * const voices = await provider.getVoices({ lang: "en-US", minVoices: 1 });
  * const voice = voices[0];
  * const utterance = voice.createUtterance("Hello, world!");
  * utterance.start();
+ *
+ * // With volume normalization enabled
+ * const providerWithNormalization = createElevenLabsVoiceProvider("your-api-key", undefined, {
+ *   normalizeVolume: true
+ * });
+ * const voices = await providerWithNormalization.getVoices({ lang: "en-US", minVoices: 1 });
+ * const voice = voices[0];
+ * const utterance = voice.createUtterance("Hello, world!");
+ * utterance.start(); // Audio will be played with normalized volume
  * ```
  */
 export class ElevenLabsVoiceProvider implements VoiceProvider {
   name = "ElevenLabs";
 
-  private apiKey: string;
   private baseUrl: string;
   private validateResponses: boolean;
   private printVoiceProperties: boolean;
-  private cacheMaxAge: number | null;
+  readonly cacheMaxAge: number | null; // Make it public and readonly
+  private _normalizeVolume: boolean;
+
+  // Public API key for use by voices
+  readonly apiKey: string;
+
+  /**
+   * Get the current volume normalization setting
+   */
+  get normalizeVolume(): boolean {
+    return this._normalizeVolume;
+  }
+
+  /**
+   * Set the volume normalization setting
+   * @param value - Whether to normalize audio volume
+   */
+  set normalizeVolume(value: boolean) {
+    this._normalizeVolume = value;
+  }
 
   /**
    * Create a new ElevenLabs voice provider.
@@ -42,6 +70,7 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
    * @param options.validateResponses - Whether to validate API responses against the schema
    * @param options.printVoiceProperties - Whether to print voice properties for debugging
    * @param options.cacheMaxAge - Maximum age of cached responses in seconds (default: 1 hour). Set to null to disable caching.
+   * @param options.normalizeVolume - Whether to automatically normalize audio volume during playback (default: false)
    */
   constructor(
     apiKey: string,
@@ -50,6 +79,7 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
       validateResponses?: boolean;
       printVoiceProperties?: boolean;
       cacheMaxAge?: number | null;
+      normalizeVolume?: boolean;
     } = {},
   ) {
     this.apiKey = apiKey;
@@ -57,6 +87,7 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
     this.validateResponses = options.validateResponses || false;
     this.printVoiceProperties = options.printVoiceProperties || false;
     this.cacheMaxAge = options.cacheMaxAge ?? 3600; // Default to 1 hour, null to disable
+    this._normalizeVolume = options.normalizeVolume ?? false;
   }
 
   /**
@@ -107,8 +138,7 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
     );
 
     return (voices.length >= minVoices ? voices : data.voices).map(
-      (voice) =>
-        new ElevenLabsVoice(this.apiKey, voice, this, this.cacheMaxAge),
+      (voice) => new ElevenLabsVoice(voice, this),
     );
   }
 
@@ -129,11 +159,30 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
  */
 export class ElevenLabsVoice implements Voice {
   constructor(
-    private apiKey: string,
     private voiceData: ElevenLabsVoiceData,
-    public provider: VoiceProvider,
-    private cacheMaxAge: number | null = 3600, // Default to 1 hour, null to disable
+    public provider: ElevenLabsVoiceProvider,
   ) {}
+
+  /**
+   * Get the API key from the provider
+   */
+  get apiKey(): string {
+    return this.provider.apiKey;
+  }
+
+  /**
+   * Get the current volume normalization setting from the provider
+   */
+  get normalizeVolume(): boolean {
+    return this.provider.normalizeVolume;
+  }
+
+  /**
+   * Get the cache max age from the provider
+   */
+  get cacheMaxAge(): number | null {
+    return this.provider.cacheMaxAge;
+  }
 
   /** The language code for the voice */
   get lang() {
@@ -173,6 +222,7 @@ export class ElevenLabsVoice implements Voice {
       this.voiceData.labels.language,
       text,
       this.cacheMaxAge,
+      { normalizeVolume: this.normalizeVolume },
     );
   }
 }
@@ -185,6 +235,8 @@ export class ElevenLabsUtterance implements Utterance {
   private onStartCallback: (() => void) | null = null;
   private onEndCallback: (() => void) | null = null;
   private cacheMaxAge: number | null;
+  private normalizeVolume: boolean;
+  private audioContext: AudioContext | null = null;
 
   constructor(
     private apiKey: string,
@@ -192,12 +244,17 @@ export class ElevenLabsUtterance implements Utterance {
     private languageCode: string,
     private text: string,
     cacheMaxAge: number | null = 3600, // Default to 1 hour, null to disable
+    options: {
+      normalizeVolume?: boolean;
+    } = {},
   ) {
     this.cacheMaxAge = cacheMaxAge;
+    this.normalizeVolume = options.normalizeVolume ?? false;
   }
 
   /**
    * Start speaking the utterance by fetching audio from ElevenLabs and playing it.
+   * If normalizeVolume is enabled, the audio will be processed to normalize its volume.
    */
   async start() {
     const response = await cachedFetch(
@@ -220,19 +277,147 @@ export class ElevenLabsUtterance implements Utterance {
     );
 
     const audioBlob = await response.blob();
-    const audioUrl = URL.createObjectURL(audioBlob);
-    this.audio = new Audio(audioUrl);
 
-    this.audio.onplay = () => this.onStartCallback?.();
-    this.audio.onended = () => this.onEndCallback?.();
+    if (this.normalizeVolume) {
+      await this.playNormalizedAudio(audioBlob);
+    } else {
+      const audioUrl = URL.createObjectURL(audioBlob);
+      this.audio = new Audio(audioUrl);
+      this.audio.onplay = () => this.onStartCallback?.();
+      this.audio.onended = () => this.onEndCallback?.();
+      await this.audio.play();
+    }
+  }
 
-    await this.audio.play();
+  /**
+   * Normalize the audio buffer to a consistent volume level
+   * @param buffer - The audio buffer to normalize
+   * @returns A new audio buffer with normalized volume
+   */
+  private normalizeAudioBuffer(buffer: AudioBuffer): AudioBuffer {
+    // Target RMS level (root mean square) - standard level for normalization
+    const TARGET_RMS = 0.2;
+
+    // We need to make sure audioContext exists
+    if (!this.audioContext) {
+      throw new Error("AudioContext not initialized");
+    }
+    // Create a new buffer with the same parameters
+    const normalizedBuffer = this.audioContext.createBuffer(
+      buffer.numberOfChannels,
+      buffer.length,
+      buffer.sampleRate,
+    );
+
+    // Process each channel
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      // Get the audio data
+      const inputData = buffer.getChannelData(channel);
+      const outputData = normalizedBuffer.getChannelData(channel);
+
+      // Calculate the current RMS (root mean square)
+      let sumOfSquares = 0;
+      for (let i = 0; i < inputData.length; i++) {
+        sumOfSquares += inputData[i] * inputData[i];
+      }
+      const rms = Math.sqrt(sumOfSquares / inputData.length);
+
+      // Calculate the gain to apply
+      const gain = rms > 0 ? TARGET_RMS / rms : 1;
+
+      // Apply normalization with peak limiting to avoid clipping
+      for (let i = 0; i < inputData.length; i++) {
+        // Apply gain with soft limiting to prevent clipping
+        let sample = inputData[i] * gain;
+
+        // Soft limiter formula to gently limit peaks
+        if (sample > 0.8) {
+          sample = 0.8 + (1 - 0.8) * Math.tanh((sample - 0.8) / (1 - 0.8));
+        } else if (sample < -0.8) {
+          sample = -0.8 - (1 - 0.8) * Math.tanh((-sample - 0.8) / (1 - 0.8));
+        }
+
+        outputData[i] = sample;
+      }
+    }
+
+    // Now we know normalizedBuffer is defined
+    return normalizedBuffer;
+  }
+
+  /**
+   * Process and play the audio with normalized volume using Web Audio API
+   * @param audioBlob - The audio blob from the API response
+   */
+  private async playNormalizedAudio(audioBlob: Blob) {
+    // Create AudioContext
+    this.audioContext = new AudioContext();
+
+    // Convert blob to ArrayBuffer
+    const arrayBuffer = await audioBlob.arrayBuffer();
+
+    // Decode the audio data
+    const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+
+    // Create audio source
+    const source = this.audioContext.createBufferSource();
+    source.buffer = audioBuffer;
+
+    // More aggressive volume normalization approach
+
+    // First normalize the audio data to adjust overall volume
+    const normalizedBuffer = this.normalizeAudioBuffer(audioBuffer);
+    source.buffer = normalizedBuffer;
+
+    // Apply dynamics compression for further volume control
+    const compressor = this.audioContext.createDynamicsCompressor();
+    compressor.threshold.value = -50; // Lower threshold to catch more of the audio
+    compressor.knee.value = 40; // Wider knee for smoother transition
+    compressor.ratio.value = 20; // More aggressive compression ratio
+    compressor.attack.value = 0.001; // Faster attack time
+    compressor.release.value = 0.5; // Longer release
+
+    // Add a limiter to prevent clipping
+    const limiter = this.audioContext.createDynamicsCompressor();
+    limiter.threshold.value = -1.0;
+    limiter.knee.value = 0.0;
+    limiter.ratio.value = 20.0;
+    limiter.attack.value = 0.001;
+    limiter.release.value = 0.01;
+
+    // Add gain node for final volume level
+    const gainNode = this.audioContext.createGain();
+    gainNode.gain.value = 0.9; // Slightly below maximum to prevent distortion
+
+    // Connect the audio processing chain
+    source.connect(compressor);
+    compressor.connect(limiter);
+    limiter.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+
+    // Set up callbacks
+    source.onended = () => {
+      this.onEndCallback?.();
+      this.audioContext?.close();
+      this.audioContext = null;
+    };
+
+    // Start playback
+    source.start();
+    this.onStartCallback?.();
   }
 
   /** Stop speaking the utterance */
   stop() {
-    this.audio?.pause();
-    this.audio = null;
+    if (this.audio) {
+      this.audio.pause();
+      this.audio = null;
+    }
+
+    if (this.audioContext) {
+      this.audioContext.close();
+      this.audioContext = null;
+    }
   }
 
   /** Set the callback for when the utterance starts speaking */
@@ -254,6 +439,7 @@ export class ElevenLabsUtterance implements Utterance {
  * @param options.validateResponses - Whether to validate API responses against the schema
  * @param options.printVoiceProperties - Whether to print voice properties for debugging
  * @param options.cacheMaxAge - Maximum age of cached responses in seconds (default: 1 hour). Set to null to disable caching.
+ * @param options.normalizeVolume - Whether to automatically normalize audio volume during playback (default: false)
  */
 export function createElevenLabsVoiceProvider(
   apiKey: string,
@@ -262,6 +448,7 @@ export function createElevenLabsVoiceProvider(
     validateResponses?: boolean;
     printVoiceProperties?: boolean;
     cacheMaxAge?: number | null;
+    normalizeVolume?: boolean;
   } = {},
 ): VoiceProvider {
   return new ElevenLabsVoiceProvider(apiKey, baseUrl, options);

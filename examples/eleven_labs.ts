@@ -10,9 +10,10 @@ async function elevenLabsExample() {
     return;
   }
 
-  // Create the provider with the API key
+  // Create the provider with the API key and volume normalization
   const provider = getVoiceProvider({
-    elevenLabs: ELEVEN_LABS_API_KEY,
+    elevenLabsApiKey: ELEVEN_LABS_API_KEY,
+    normalizeVolume: true, // Enable volume normalization
   });
 
   console.log(`Using voice provider: ${provider.name}`);

@@ -41,7 +41,8 @@
     "docs": "typedoc",
     "docs:watch": "nodemon",
     "docs:serve": "live-server docs --port=8080 --no-browser",
-    "docs:dev": "concurrently \"bun run docs:watch\" \"bun run docs:serve\""
+    "docs:dev": "concurrently \"bun run docs:watch\" \"bun run docs:serve\"",
+    "serve-demo": "bun run build && live-server --port=3000 ."
   },
   "keywords": [
     "speech-synthesis",
