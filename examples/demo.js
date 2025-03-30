@@ -1,5 +1,5 @@
 import { z } from 'https://esm.sh/zod@3.22.4';
-import { getVoiceProvider } from 'https://esm.sh/speech-provider@0.1.2';
+import { getVoiceProvider } from 'https://esm.sh/speech-provider@0.1.3';
 
 // Example sentences for different languages
 const exampleSentences = {
