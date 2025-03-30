@@ -21,8 +21,8 @@ fix: format
     bun run lint:fix
 
 # Run tests
-test:
-    bun test
+test *ARGS:
+    bun test {{ARGS}}
 
 # Generate API documentation
 docs:
