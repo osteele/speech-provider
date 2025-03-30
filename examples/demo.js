@@ -370,5 +370,6 @@ function setupEventListeners() {
   };
 }
 
-// Start the application
-initApp();
+// Initialize the app
+initVoiceProvider();
+setupEventListeners();

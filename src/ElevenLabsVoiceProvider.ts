@@ -112,7 +112,18 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
       },
     );
 
-    const data = (await response.json()) as { voices: ElevenLabsVoiceData[] };
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch voices: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    const data = await response.json();
+
+    // Check if the response has the expected format
+    if (!data || !Array.isArray(data.voices)) {
+      throw new Error("Invalid response format from Eleven Labs API");
+    }
 
     if (this.validateResponses) {
       checkObjectsAgainstSchema(data.voices, ElevenLabsVoiceDataSchema);
@@ -133,12 +144,14 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
       );
     }
 
+    // Filter voices by language, with additional safety checks for missing properties
     const voices = data.voices.filter(
-      (voice) => voice.labels.language === lang.slice(0, 2),
+      (voice: ElevenLabsVoiceData) =>
+        voice.labels && voice.labels.language === lang.slice(0, 2),
     );
 
     return (voices.length >= minVoices ? voices : data.voices).map(
-      (voice) => new ElevenLabsVoice(voice, this),
+      (voice: ElevenLabsVoiceData) => new ElevenLabsVoice(voice, this),
     );
   }
 
