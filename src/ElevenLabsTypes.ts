@@ -3,6 +3,8 @@ import { z } from "zod";
 /**
  * Zod schema for validating ElevenLabs voice data.
  * This schema ensures that the API response matches the expected format.
+ * Uses passthrough() to allow additional properties for forward compatibility
+ * with future API changes.
  */
 export const ElevenLabsVoiceDataSchema = z
   .object({
@@ -30,7 +32,7 @@ export const ElevenLabsVoiceDataSchema = z
     voice_verification: z.record(z.any()),
     permission_on_resource: z.null(),
   })
-  .strict();
+  .passthrough();
 
 /**
  * Type definition for ElevenLabs voice data.

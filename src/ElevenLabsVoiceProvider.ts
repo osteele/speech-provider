@@ -4,6 +4,7 @@ import {
 } from "./ElevenLabsTypes";
 import { Utterance, Voice, VoiceProvider } from "./VoiceProvider";
 import { cachedFetch } from "./utils/cachedFetch";
+import { DEFAULT_CACHE_MAX_AGE } from "./constants";
 import {
   checkObjectsAgainstSchema,
   printDistinctPropertyValues,
@@ -56,7 +57,7 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
     this.baseUrl = baseUrl;
     this.validateResponses = options.validateResponses || false;
     this.printVoiceProperties = options.printVoiceProperties || false;
-    this.cacheMaxAge = options.cacheMaxAge ?? 3600; // Default to 1 hour, null to disable
+    this.cacheMaxAge = options.cacheMaxAge ?? DEFAULT_CACHE_MAX_AGE; // Default to 1 hour, null to disable
   }
 
   /**
@@ -132,7 +133,7 @@ export class ElevenLabsVoice implements Voice {
     private apiKey: string,
     private voiceData: ElevenLabsVoiceData,
     public provider: VoiceProvider,
-    private cacheMaxAge: number | null = 3600, // Default to 1 hour, null to disable
+    private cacheMaxAge: number | null = DEFAULT_CACHE_MAX_AGE, // Default to 1 hour, null to disable
   ) {}
 
   /** The language code for the voice */
@@ -182,6 +183,7 @@ export class ElevenLabsVoice implements Voice {
  */
 export class ElevenLabsUtterance implements Utterance {
   private audio: HTMLAudioElement | null = null;
+  private audioUrl: string | null = null;
   private onStartCallback: (() => void) | null = null;
   private onEndCallback: (() => void) | null = null;
   private cacheMaxAge: number | null;
@@ -191,48 +193,79 @@ export class ElevenLabsUtterance implements Utterance {
     private voiceId: string,
     private languageCode: string,
     private text: string,
-    cacheMaxAge: number | null = 3600, // Default to 1 hour, null to disable
+    cacheMaxAge: number | null = DEFAULT_CACHE_MAX_AGE, // Default to 1 hour, null to disable
   ) {
     this.cacheMaxAge = cacheMaxAge;
   }
 
   /**
    * Start speaking the utterance by fetching audio from ElevenLabs and playing it.
+   * @throws {Error} If the API request fails or audio playback fails
    */
   async start() {
-    const response = await cachedFetch(
-      `${ELEVEN_LABS_BASE_URL}/text-to-speech/${this.voiceId}`,
-      {
-        method: "POST",
-        headers: {
-          "xi-api-key": this.apiKey,
-          "Content-Type": "application/json",
+    try {
+      const response = await cachedFetch(
+        `${ELEVEN_LABS_BASE_URL}/text-to-speech/${this.voiceId}`,
+        {
+          method: "POST",
+          headers: {
+            "xi-api-key": this.apiKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model_id: "eleven_turbo_v2_5",
+            language_code: this.languageCode,
+            text: this.text,
+          }),
+          cacheOptions: {
+            maxAge: this.cacheMaxAge,
+          },
         },
-        body: JSON.stringify({
-          model_id: "eleven_turbo_v2_5",
-          language_code: this.languageCode,
-          text: this.text,
-        }),
-        cacheOptions: {
-          maxAge: this.cacheMaxAge,
-        },
-      },
-    );
+      );
 
-    const audioBlob = await response.blob();
-    const audioUrl = URL.createObjectURL(audioBlob);
-    this.audio = new Audio(audioUrl);
+      if (!response.ok) {
+        throw new Error(
+          `ElevenLabs API request failed: ${response.status} ${response.statusText}`,
+        );
+      }
 
-    this.audio.onplay = () => this.onStartCallback?.();
-    this.audio.onended = () => this.onEndCallback?.();
+      const audioBlob = await response.blob();
+      this.audioUrl = URL.createObjectURL(audioBlob);
+      this.audio = new Audio(this.audioUrl);
 
-    await this.audio.play();
+      this.audio.onplay = () => this.onStartCallback?.();
+      this.audio.onended = () => {
+        this.onEndCallback?.();
+        this.cleanup();
+      };
+      this.audio.onerror = () => {
+        this.cleanup();
+        throw new Error("Audio playback failed");
+      };
+
+      await this.audio.play();
+    } catch (error) {
+      this.cleanup();
+      throw error;
+    }
+  }
+
+  /**
+   * Clean up resources by revoking the object URL
+   * @private
+   */
+  private cleanup() {
+    if (this.audioUrl) {
+      URL.revokeObjectURL(this.audioUrl);
+      this.audioUrl = null;
+    }
   }
 
   /** Stop speaking the utterance */
   stop() {
     this.audio?.pause();
     this.audio = null;
+    this.cleanup();
   }
 
   /** Set the callback for when the utterance starts speaking */

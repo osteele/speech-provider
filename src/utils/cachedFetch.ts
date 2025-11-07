@@ -1,3 +1,5 @@
+import { DEFAULT_CACHE_MAX_AGE } from "../constants";
+
 interface CachedFetchOptions extends RequestInit {
   additionalHeaders?: Record<string, string>;
   cacheOptions?: {
@@ -46,7 +48,7 @@ export async function cachedFetch(
   options: CachedFetchOptions = {},
 ): Promise<Response> {
   const { additionalHeaders, cacheOptions = {}, ...fetchOptions } = options;
-  const { maxAge = 3600, skipCache = false } = cacheOptions; // Default to 1 hour
+  const { maxAge = DEFAULT_CACHE_MAX_AGE, skipCache = false } = cacheOptions; // Default to 1 hour
   const headers = { ...fetchOptions.headers } as Record<string, string>;
 
   if (additionalHeaders) {
