@@ -32,7 +32,7 @@
   "scripts": {
     "build": "tsc",
     "format": "biome format --write .",
-    "format:check": "biome format .",
+    "format:check": "biome format --check .",
     "lint": "biome lint .",
     "lint:fix": "biome lint --apply-unsafe .",
     "typecheck": "tsc --noEmit",

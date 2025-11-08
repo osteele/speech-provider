@@ -15,6 +15,13 @@
     "indentStyle": "space"
   },
   "files": {
-    "ignore": ["dist/**"]
+    "ignore": [
+      "dist/**",
+      "*.md",
+      "bun.lock",
+      ".github/**",
+      "docs/**",
+      "node_modules/**"
+    ]
   }
 }
