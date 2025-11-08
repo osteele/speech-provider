@@ -3,15 +3,12 @@ import { cachedFetch } from "../src/utils/cachedFetch";
 
 describe("cachedFetch", () => {
   let originalFetch: typeof global.fetch;
-  let fetchCallCount = 0;
 
   beforeEach(() => {
     originalFetch = global.fetch;
-    fetchCallCount = 0;
 
     // Mock the global fetch function
     global.fetch = mock(async () => {
-      fetchCallCount++;
       return new Response("test response", {
         status: 200,
         headers: { "Content-Type": "text/plain" },

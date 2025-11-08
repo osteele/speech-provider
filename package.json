@@ -32,9 +32,8 @@
   "scripts": {
     "build": "tsc",
     "format": "biome format --write .",
-    "format:check": "biome format --check .",
-    "lint": "biome lint .",
-    "lint:fix": "biome lint --apply-unsafe .",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "prepare": "node -e \"if (!process.env.npm_config_user_agent?.includes('npm') && !process.env.npm_config_user_agent?.includes('bun')) process.exit(require('child_process').spawnSync('husky', { stdio: 'inherit' }).status)\"",
@@ -51,7 +50,7 @@
     "voice"
   ],
   "devDependencies": {
-    "@biomejs/biome": "^1.9.4",
+    "@biomejs/biome": "^2.3.4",
     "@types/web": "^0.0.140",
     "bun-types": "latest",
     "concurrently": "^9.1.2",

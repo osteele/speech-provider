@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import type { ElevenLabsVoiceData } from "../src/ElevenLabsTypes";
 import {
-  ElevenLabsVoiceProvider,
   createElevenLabsVoiceProvider,
   ELEVEN_LABS_BASE_URL,
+  ElevenLabsVoiceProvider,
 } from "../src/ElevenLabsVoiceProvider";
-import type { ElevenLabsVoiceData } from "../src/ElevenLabsTypes";
 
 describe("ElevenLabsVoiceProvider", () => {
   const mockApiKey = "test-api-key";
@@ -126,17 +126,25 @@ describe("ElevenLabsVoiceProvider", () => {
   });
 
   test("provider respects custom cache settings", () => {
-    const provider = createElevenLabsVoiceProvider(mockApiKey, ELEVEN_LABS_BASE_URL, {
-      cacheMaxAge: 7200,
-    });
+    const provider = createElevenLabsVoiceProvider(
+      mockApiKey,
+      ELEVEN_LABS_BASE_URL,
+      {
+        cacheMaxAge: 7200,
+      },
+    );
 
     expect(provider).toBeInstanceOf(ElevenLabsVoiceProvider);
   });
 
   test("provider can disable caching", () => {
-    const provider = createElevenLabsVoiceProvider(mockApiKey, ELEVEN_LABS_BASE_URL, {
-      cacheMaxAge: null,
-    });
+    const provider = createElevenLabsVoiceProvider(
+      mockApiKey,
+      ELEVEN_LABS_BASE_URL,
+      {
+        cacheMaxAge: null,
+      },
+    );
 
     expect(provider).toBeInstanceOf(ElevenLabsVoiceProvider);
   });

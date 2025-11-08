@@ -1,14 +1,14 @@
+import { DEFAULT_CACHE_MAX_AGE } from "./constants";
 import {
-  ElevenLabsVoiceData,
+  type ElevenLabsVoiceData,
   ElevenLabsVoiceDataSchema,
 } from "./ElevenLabsTypes";
-import { Utterance, Voice, VoiceProvider } from "./VoiceProvider";
 import { cachedFetch } from "./utils/cachedFetch";
-import { DEFAULT_CACHE_MAX_AGE } from "./constants";
 import {
   checkObjectsAgainstSchema,
   printDistinctPropertyValues,
 } from "./utils/debugging";
+import type { Utterance, Voice, VoiceProvider } from "./VoiceProvider";
 
 /** The base URL for the Eleven Labs API */
 export const ELEVEN_LABS_BASE_URL = "https://api.elevenlabs.io/v1";
