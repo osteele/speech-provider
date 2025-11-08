@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   ElevenLabsVoiceProvider,
   createElevenLabsVoiceProvider,
@@ -141,6 +141,3 @@ describe("ElevenLabsVoiceProvider", () => {
     expect(provider).toBeInstanceOf(ElevenLabsVoiceProvider);
   });
 });
-
-// Add afterEach function if not defined in bun:test
-declare function afterEach(fn: () => void): void;

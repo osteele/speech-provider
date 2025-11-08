@@ -11,7 +11,7 @@
  * const provider = getVoiceProvider({});
  *
  * // Use Eleven Labs voices if API key is available
- * const provider = getVoiceProvider({ elevenLabs: 'your-api-key' });
+ * const provider = getVoiceProvider({ elevenLabsApiKey: 'your-api-key' });
  *
  * // Get voices for a specific language
  * const voices = await provider.getVoices({ lang: 'en-US', minVoices: 1 });

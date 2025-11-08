@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { cachedFetch } from "../src/utils/cachedFetch";
 
 describe("cachedFetch", () => {
@@ -124,6 +124,3 @@ describe("cachedFetch", () => {
     expect(text).toBe("test response");
   });
 });
-
-// Add afterEach function if not defined in bun:test
-declare function afterEach(fn: () => void): void;
