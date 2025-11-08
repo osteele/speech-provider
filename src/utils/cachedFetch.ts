@@ -95,11 +95,17 @@ export async function cachedFetch(
     const responseToCache = response.clone();
     const blob = await responseToCache.blob();
 
+    // Convert headers to plain object
+    const headersObj: Record<string, string> = {};
+    responseToCache.headers.forEach((value, key) => {
+      headersObj[key] = value;
+    });
+
     // Cache the response data
     await cacheResponse(cacheKey, {
       timestamp: Date.now(),
       blob,
-      headers: Object.fromEntries(responseToCache.headers.entries()),
+      headers: headersObj,
     });
 
     return response;
