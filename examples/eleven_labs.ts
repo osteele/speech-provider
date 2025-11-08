@@ -12,7 +12,7 @@ async function elevenLabsExample() {
 
   // Create the provider with the API key
   const provider = getVoiceProvider({
-    elevenLabs: ELEVEN_LABS_API_KEY,
+    elevenLabsApiKey: ELEVEN_LABS_API_KEY,
   });
 
   console.log(`Using voice provider: ${provider.name}`);

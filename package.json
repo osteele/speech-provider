@@ -31,10 +31,10 @@
   "license": "MIT",
   "scripts": {
     "build": "tsc",
-    "format": "biome format --write src/",
-    "lint": "biome check src/",
-    "lint:fix": "biome check --apply-unsafe src/",
-    "typecheck": "biome check src/ && tsc --noEmit",
+    "format": "biome format --write .",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "typecheck": "tsc --noEmit",
     "test": "bun test",
     "prepare": "node -e \"if (!process.env.npm_config_user_agent?.includes('npm') && !process.env.npm_config_user_agent?.includes('bun')) process.exit(require('child_process').spawnSync('husky', { stdio: 'inherit' }).status)\"",
     "prepublishOnly": "bun run build",
@@ -50,7 +50,7 @@
     "voice"
   ],
   "devDependencies": {
-    "@biomejs/biome": "1.5.3",
+    "@biomejs/biome": "^2.3.4",
     "@types/web": "^0.0.140",
     "bun-types": "latest",
     "concurrently": "^9.1.2",

@@ -11,7 +11,7 @@
  * const provider = getVoiceProvider({});
  *
  * // Use Eleven Labs voices if API key is available
- * const provider = getVoiceProvider({ elevenLabs: 'your-api-key' });
+ * const provider = getVoiceProvider({ elevenLabsApiKey: 'your-api-key' });
  *
  * // Get voices for a specific language
  * const voices = await provider.getVoices({ lang: 'en-US', minVoices: 1 });
@@ -26,22 +26,20 @@
  * @packageDocumentation
  */
 
-// Export main interfaces and functions
-export { getVoiceProvider } from "./VoiceProvider";
-export type { VoiceProvider, Voice, Utterance } from "./VoiceProvider";
-
 // Export browser voice provider
 export {
+  BrowserSpeechSynthesisVoice,
   BrowserVoiceProvider,
   browserVoiceProvider,
-  BrowserSpeechSynthesisVoice,
 } from "./BrowserVoiceProvider";
-
+export type { ElevenLabsVoiceData } from "./ElevenLabsTypes";
 // Export ElevenLabs voice provider
 export {
   createElevenLabsVoiceProvider,
-  ElevenLabsVoice,
   ElevenLabsUtterance,
+  ElevenLabsVoice,
   ElevenLabsVoiceProvider,
 } from "./ElevenLabsVoiceProvider";
-export type { ElevenLabsVoiceData } from "./ElevenLabsTypes";
+export type { Utterance, Voice, VoiceProvider } from "./VoiceProvider";
+// Export main interfaces and functions
+export { getVoiceProvider } from "./VoiceProvider";
