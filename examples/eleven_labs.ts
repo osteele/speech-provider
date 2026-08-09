@@ -44,6 +44,7 @@ async function elevenLabsExample() {
       // Add event listeners
       utterance.onstart = () => console.log("Started speaking");
       utterance.onend = () => console.log("Finished speaking");
+      utterance.onerror = (error) => console.error("Playback failed", error);
 
       console.log("Starting speech synthesis...");
       await utterance.start();

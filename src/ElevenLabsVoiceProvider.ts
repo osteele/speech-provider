@@ -1,16 +1,34 @@
 import {
   type ElevenLabsVoiceData,
-  ElevenLabsVoiceDataSchema,
+  ElevenLabsVoicesResponseSchema,
 } from "./ElevenLabsTypes.js";
-import type { Utterance, Voice, VoiceProvider } from "./VoiceProvider.js";
+import type {
+  GetVoicesOptions,
+  Utterance,
+  Voice,
+  VoiceProvider,
+} from "./VoiceProvider.js";
 import { cachedFetch } from "./utils/cachedFetch.js";
-import {
-  checkObjectsAgainstSchema,
-  printDistinctPropertyValues,
-} from "./utils/debugging.js";
+import { printDistinctPropertyValues } from "./utils/debugging.js";
+import { getPrimaryLanguage } from "./utils/language.js";
 
 /** The base URL for the Eleven Labs API */
 export const ELEVEN_LABS_BASE_URL = "https://api.elevenlabs.io/v1";
+const ELEVEN_LABS_VOICES_URL = "https://api.elevenlabs.io/v2/voices";
+
+function getVoiceLanguages(voice: ElevenLabsVoiceData): string[] {
+  const languages =
+    voice.verified_languages?.map(({ language }) => language) ?? [];
+  const labelLanguage = voice.labels?.language;
+  if (labelLanguage) {
+    languages.push(labelLanguage);
+  }
+  const verificationLanguage = voice.voice_verification?.language;
+  if (verificationLanguage) {
+    languages.push(verificationLanguage);
+  }
+  return languages;
+}
 
 /**
  * A voice provider that uses the ElevenLabs API for high-quality text-to-speech.
@@ -23,7 +41,7 @@ export const ELEVEN_LABS_BASE_URL = "https://api.elevenlabs.io/v1";
  * const voices = await provider.getVoices({ lang: "en-US", minVoices: 1 });
  * const voice = voices[0];
  * const utterance = voice.createUtterance("Hello, world!");
- * utterance.start();
+ * await utterance.start();
  *
  * // With volume normalization enabled
  * const providerWithNormalization = createElevenLabsVoiceProvider("your-api-key", undefined, {
@@ -32,14 +50,13 @@ export const ELEVEN_LABS_BASE_URL = "https://api.elevenlabs.io/v1";
  * const voices = await providerWithNormalization.getVoices({ lang: "en-US", minVoices: 1 });
  * const voice = voices[0];
  * const utterance = voice.createUtterance("Hello, world!");
- * utterance.start(); // Audio will be played with normalized volume
+ * await utterance.start(); // Audio will be played with normalized volume
  * ```
  */
 export class ElevenLabsVoiceProvider implements VoiceProvider {
   name = "ElevenLabs";
 
   readonly baseUrl: string;
-  private validateResponses: boolean;
   private printVoiceProperties: boolean;
   readonly cacheMaxAge: number | null; // Make it public and readonly
   private _normalizeVolume: boolean;
@@ -67,7 +84,6 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
    * @param apiKey - Your ElevenLabs API key
    * @param baseUrl - The base URL for the ElevenLabs API (defaults to the official API)
    * @param options - Additional options for the provider
-   * @param options.validateResponses - Whether to validate API responses against the schema
    * @param options.printVoiceProperties - Whether to print voice properties for debugging
    * @param options.cacheMaxAge - Maximum age of cached responses in seconds (default: 1 hour). Set to null to disable caching.
    * @param options.normalizeVolume - Whether to automatically normalize audio volume during playback (default: false)
@@ -76,7 +92,6 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
     apiKey: string,
     baseUrl: string = ELEVEN_LABS_BASE_URL,
     options: {
-      validateResponses?: boolean;
       printVoiceProperties?: boolean;
       cacheMaxAge?: number | null;
       normalizeVolume?: boolean;
@@ -84,7 +99,6 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
   ) {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
-    this.validateResponses = options.validateResponses || false;
     this.printVoiceProperties = options.printVoiceProperties || false;
     this.cacheMaxAge =
       options.cacheMaxAge === undefined ? 3600 : options.cacheMaxAge;
@@ -101,17 +115,16 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
   async getVoices({
     lang,
     minVoices,
-  }: {
-    lang: string;
-    minVoices: number;
-  }): Promise<Voice[]> {
-    const langCode = lang.slice(0, 2);
-    const response = await fetch(
-      `${this.baseUrl}/voices?language=${langCode}`,
-      {
-        headers: { "xi-api-key": this.apiKey },
-      },
-    );
+    fallbackToAnyLanguage = false,
+  }: GetVoicesOptions): Promise<Voice[]> {
+    const langCode = getPrimaryLanguage(lang);
+    const voicesUrl =
+      this.baseUrl === ELEVEN_LABS_BASE_URL
+        ? `${ELEVEN_LABS_VOICES_URL}?page_size=100`
+        : `${this.baseUrl}/voices`;
+    const response = await fetch(voicesUrl, {
+      headers: { "xi-api-key": this.apiKey },
+    });
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -124,40 +137,42 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
       );
     }
 
-    const data = await response.json();
-
-    // Check if the response has the expected format
-    if (!data || !Array.isArray(data.voices)) {
-      throw new Error("Invalid response format from Eleven Labs API");
+    const result = ElevenLabsVoicesResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!result.success) {
+      throw new Error("Invalid response format from Eleven Labs API", {
+        cause: result.error,
+      });
     }
-
-    if (this.validateResponses) {
-      checkObjectsAgainstSchema(data.voices, ElevenLabsVoiceDataSchema);
-    }
+    const { voices: allVoices } = result.data;
 
     if (this.printVoiceProperties) {
-      printDistinctPropertyValues(
-        data.voices as unknown as Record<string, unknown>[],
-        {
-          omit: [
-            "name",
-            "voice_id",
-            "sharing",
-            "voice_verification",
-            "fine_tuning",
-          ],
-        },
-      );
+      printDistinctPropertyValues(allVoices, {
+        omit: [
+          "name",
+          "voice_id",
+          "sharing",
+          "voice_verification",
+          "fine_tuning",
+        ],
+      });
     }
 
-    // Filter voices by language, with additional safety checks for missing properties
-    const voices = data.voices.filter(
-      (voice: ElevenLabsVoiceData) =>
-        voice.labels && voice.labels.language === lang.slice(0, 2),
-    );
+    const voices = allVoices.filter((voice) => {
+      const voiceLanguages = getVoiceLanguages(voice);
+      return (
+        voiceLanguages.length === 0 ||
+        voiceLanguages.some(
+          (voiceLanguage) => getPrimaryLanguage(voiceLanguage) === langCode,
+        )
+      );
+    });
 
-    return (voices.length >= minVoices ? voices : data.voices).map(
-      (voice: ElevenLabsVoiceData) => new ElevenLabsVoice(voice, this),
+    const selectedVoices =
+      voices.length >= minVoices || !fallbackToAnyLanguage ? voices : allVoices;
+    return selectedVoices.map(
+      (voice) => new ElevenLabsVoice(voice, lang, this),
     );
   }
 
@@ -179,6 +194,7 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
 export class ElevenLabsVoice implements Voice {
   constructor(
     private voiceData: ElevenLabsVoiceData,
+    public lang: string,
     public provider: ElevenLabsVoiceProvider,
   ) {}
 
@@ -201,11 +217,6 @@ export class ElevenLabsVoice implements Voice {
    */
   get cacheMaxAge(): number | null {
     return this.provider.cacheMaxAge;
-  }
-
-  /** The language code for the voice */
-  get lang() {
-    return this.voiceData.labels.language;
   }
 
   /** The display name of the voice */
@@ -238,7 +249,7 @@ export class ElevenLabsVoice implements Voice {
     return new ElevenLabsUtterance(
       this.apiKey,
       this.voiceData.voice_id,
-      this.voiceData.labels.language,
+      this.lang,
       text,
       this.cacheMaxAge,
       {
@@ -254,8 +265,12 @@ export class ElevenLabsVoice implements Voice {
  */
 export class ElevenLabsUtterance implements Utterance {
   private audio: HTMLAudioElement | null = null;
+  private audioSource: AudioBufferSourceNode | null = null;
+  private audioUrl: string | null = null;
+  private abortController: AbortController | null = null;
   private onStartCallback: (() => void) | null = null;
   private onEndCallback: (() => void) | null = null;
+  private onErrorCallback: ((error: Error) => void) | null = null;
   private cacheMaxAge: number | null;
   private normalizeVolume: boolean;
   private audioContext: AudioContext | null = null;
@@ -281,47 +296,91 @@ export class ElevenLabsUtterance implements Utterance {
    * Start speaking the utterance by fetching audio from ElevenLabs and playing it.
    * If normalizeVolume is enabled, the audio will be processed to normalize its volume.
    */
-  async start() {
-    const response = await cachedFetch(
-      `${this.baseUrl}/text-to-speech/${this.voiceId}`,
-      {
-        method: "POST",
-        headers: {
-          "xi-api-key": this.apiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model_id: "eleven_turbo_v2_5",
-          language_code: this.languageCode,
-          text: this.text,
-        }),
-        cacheOptions: {
-          maxAge: this.cacheMaxAge,
-        },
-      },
-    );
+  async start(): Promise<void> {
+    await this.stop();
+    const abortController = new AbortController();
+    this.abortController = abortController;
 
-    if (!response.ok) {
-      if (response.status === 401) {
+    try {
+      const response = await cachedFetch(
+        `${this.baseUrl}/text-to-speech/${this.voiceId}`,
+        {
+          method: "POST",
+          headers: {
+            "xi-api-key": this.apiKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model_id: "eleven_turbo_v2_5",
+            language_code: this.languageCode,
+            text: this.text,
+          }),
+          cacheOptions: {
+            maxAge: this.cacheMaxAge,
+          },
+          signal: abortController.signal,
+        },
+      );
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error(
+            "Invalid or missing API key. Please check your Eleven Labs API key.",
+          );
+        }
         throw new Error(
-          "Invalid or missing API key. Please check your Eleven Labs API key.",
+          `Failed to synthesize speech: ${response.status} ${response.statusText}`,
         );
       }
-      throw new Error(
-        `Failed to synthesize speech: ${response.status} ${response.statusText}`,
-      );
+
+      const audioBlob = await response.blob();
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      if (this.normalizeVolume) {
+        await this.playNormalizedAudio(audioBlob, abortController.signal);
+      } else {
+        this.audioUrl = URL.createObjectURL(audioBlob);
+        this.audio = new Audio(this.audioUrl);
+        this.audio.onplay = () => this.onStartCallback?.();
+        this.audio.onended = () => {
+          this.onEndCallback?.();
+          this.releaseAudioElement();
+        };
+        this.audio.onerror = () => {
+          const error = new Error("Audio playback failed");
+          this.onErrorCallback?.(error);
+          this.releaseAudioElement();
+        };
+        await this.audio.play();
+      }
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        return;
+      }
+      const playbackError =
+        error instanceof Error ? error : new Error(String(error));
+      await this.stop();
+      this.onErrorCallback?.(playbackError);
+      throw playbackError;
+    } finally {
+      if (this.abortController === abortController) {
+        this.abortController = null;
+      }
     }
+  }
 
-    const audioBlob = await response.blob();
-
-    if (this.normalizeVolume) {
-      await this.playNormalizedAudio(audioBlob);
-    } else {
-      const audioUrl = URL.createObjectURL(audioBlob);
-      this.audio = new Audio(audioUrl);
-      this.audio.onplay = () => this.onStartCallback?.();
-      this.audio.onended = () => this.onEndCallback?.();
-      await this.audio.play();
+  private releaseAudioElement(): void {
+    if (this.audio) {
+      this.audio.onended = null;
+      this.audio.onerror = null;
+      this.audio.onplay = null;
+      this.audio = null;
+    }
+    if (this.audioUrl) {
+      URL.revokeObjectURL(this.audioUrl);
+      this.audioUrl = null;
     }
   }
 
@@ -385,7 +444,10 @@ export class ElevenLabsUtterance implements Utterance {
    * Process and play the audio with normalized volume using Web Audio API
    * @param audioBlob - The audio blob from the API response
    */
-  private async playNormalizedAudio(audioBlob: Blob) {
+  private async playNormalizedAudio(
+    audioBlob: Blob,
+    signal: AbortSignal,
+  ): Promise<void> {
     // Create AudioContext
     this.audioContext = new AudioContext();
 
@@ -394,9 +456,14 @@ export class ElevenLabsUtterance implements Utterance {
 
     // Decode the audio data
     const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+    if (signal.aborted) {
+      await this.stop();
+      return;
+    }
 
     // Create audio source
     const source = this.audioContext.createBufferSource();
+    this.audioSource = source;
     source.buffer = audioBuffer;
 
     // More aggressive volume normalization approach
@@ -433,9 +500,15 @@ export class ElevenLabsUtterance implements Utterance {
 
     // Set up callbacks
     source.onended = () => {
+      this.audioSource = null;
       this.onEndCallback?.();
-      this.audioContext?.close();
+      const audioContext = this.audioContext;
       this.audioContext = null;
+      if (audioContext) {
+        audioContext.close().catch((error: Error) => {
+          this.onErrorCallback?.(error);
+        });
+      }
     };
 
     // Start playback
@@ -444,15 +517,26 @@ export class ElevenLabsUtterance implements Utterance {
   }
 
   /** Stop speaking the utterance */
-  stop() {
+  async stop(): Promise<void> {
+    this.abortController?.abort();
+    this.abortController = null;
+
     if (this.audio) {
       this.audio.pause();
-      this.audio = null;
+      this.releaseAudioElement();
+    }
+
+    if (this.audioSource) {
+      this.audioSource.onended = null;
+      this.audioSource.stop();
+      this.audioSource.disconnect();
+      this.audioSource = null;
     }
 
     if (this.audioContext) {
-      this.audioContext.close();
+      const audioContext = this.audioContext;
       this.audioContext = null;
+      await audioContext.close();
     }
   }
 
@@ -465,6 +549,11 @@ export class ElevenLabsUtterance implements Utterance {
   set onend(callback: () => void) {
     this.onEndCallback = callback;
   }
+
+  /** Set the callback for playback errors */
+  set onerror(callback: (error: Error) => void) {
+    this.onErrorCallback = callback;
+  }
 }
 
 /**
@@ -472,7 +561,6 @@ export class ElevenLabsUtterance implements Utterance {
  * @param apiKey - Your Eleven Labs API key
  * @param baseUrl - The base URL for the Eleven Labs API (defaults to the official API)
  * @param options - Additional options for the provider
- * @param options.validateResponses - Whether to validate API responses against the schema
  * @param options.printVoiceProperties - Whether to print voice properties for debugging
  * @param options.cacheMaxAge - Maximum age of cached responses in seconds (default: 1 hour). Set to null to disable caching.
  * @param options.normalizeVolume - Whether to automatically normalize audio volume during playback (default: false)
@@ -481,7 +569,6 @@ export function createElevenLabsVoiceProvider(
   apiKey: string,
   baseUrl: string = ELEVEN_LABS_BASE_URL,
   options: {
-    validateResponses?: boolean;
     printVoiceProperties?: boolean;
     cacheMaxAge?: number | null;
     normalizeVolume?: boolean;

@@ -34,7 +34,7 @@ let currentVoice = null;
 let currentUtterance = null;
 
 // Load saved API key and settings
-const savedApiKey = localStorage.getItem('elevenLabsApiKey');
+const savedApiKey = sessionStorage.getItem('elevenLabsApiKey');
 const savedNormalizeVolume = localStorage.getItem('normalizeVolume') === 'true';
 if (savedApiKey) {
   apiKeyInput.value = savedApiKey;
@@ -204,7 +204,7 @@ async function speakText(voice) {
   try {
     // Stop any current utterance
     if (currentUtterance) {
-      currentUtterance.stop();
+      await currentUtterance.stop();
     }
 
     // Create new utterance and set up handlers
@@ -226,9 +226,16 @@ async function speakText(voice) {
       speakTopButton.disabled = false;
       stopButton.disabled = true;
     };
+    currentUtterance.onerror = (error) => {
+      console.error('Playback error:', error);
+      statusDiv.textContent = error.message;
+      speakButton.disabled = false;
+      speakTopButton.disabled = false;
+      stopButton.disabled = true;
+    };
 
     // Start speaking
-    currentUtterance.start();
+    await currentUtterance.start();
   } catch (error) {
     console.error('Error speaking:', error);
     statusDiv.textContent = 'Error speaking text';
@@ -325,12 +332,12 @@ function setupEventListeners() {
   saveKeyButton.onclick = () => {
     const apiKey = apiKeyInput.value.trim();
     if (apiKey) {
-      localStorage.setItem('elevenLabsApiKey', apiKey);
+      sessionStorage.setItem('elevenLabsApiKey', apiKey);
       localStorage.setItem('normalizeVolume', normalizeVolumeCheckbox.checked);
       initVoiceProvider();
       statusDiv.textContent = 'API key saved';
     } else {
-      localStorage.removeItem('elevenLabsApiKey');
+      sessionStorage.removeItem('elevenLabsApiKey');
       localStorage.setItem('normalizeVolume', normalizeVolumeCheckbox.checked);
       initVoiceProvider();
       statusDiv.textContent = 'API key removed';
@@ -359,9 +366,9 @@ function setupEventListeners() {
   speakTopButton.onclick = () => speakText(currentVoice);
 
   // Stop speaking
-  stopButton.onclick = () => {
+  stopButton.onclick = async () => {
     if (currentUtterance) {
-      currentUtterance.stop();
+      await currentUtterance.stop();
       statusDiv.textContent = 'Stopped speaking';
       speakButton.disabled = false;
       speakTopButton.disabled = false;

@@ -1,4 +1,10 @@
-import type { Utterance, Voice, VoiceProvider } from "./VoiceProvider.js";
+import type {
+  GetVoicesOptions,
+  Utterance,
+  Voice,
+  VoiceProvider,
+} from "./VoiceProvider.js";
+import { getPrimaryLanguage, normalizeLanguageTag } from "./utils/language.js";
 
 /**
  * A voice provider that uses the browser's built-in speech synthesis.
@@ -19,14 +25,16 @@ export class BrowserVoiceProvider implements VoiceProvider {
   async getVoices({
     lang,
     minVoices,
-  }: {
-    lang: string;
-    minVoices: number;
-  }): Promise<BrowserSpeechSynthesisVoice[]> {
+    fallbackToAnyLanguage = false,
+  }: GetVoicesOptions): Promise<BrowserSpeechSynthesisVoice[]> {
     // Ensure voices are loaded before trying to filter them
     await this.ensureVoicesLoaded();
 
-    const filteredVoices = this.getBrowserVoicesForLanguage(lang, minVoices);
+    const filteredVoices = this.getBrowserVoicesForLanguage(
+      lang,
+      minVoices,
+      fallbackToAnyLanguage,
+    );
 
     return filteredVoices.map(
       (voice) => new BrowserSpeechSynthesisVoice(voice, voice.lang, this),
@@ -43,7 +51,6 @@ export class BrowserVoiceProvider implements VoiceProvider {
     }
 
     if (typeof window === "undefined" || !window.speechSynthesis) {
-      this.voicesInitialized = true;
       return;
     }
 
@@ -61,6 +68,7 @@ export class BrowserVoiceProvider implements VoiceProvider {
         if ("onvoiceschanged" in window.speechSynthesis) {
           const handleVoicesChanged = () => {
             this.voicesInitialized = true;
+            clearTimeout(timeoutId);
             window.speechSynthesis.removeEventListener(
               "voiceschanged",
               handleVoicesChanged,
@@ -68,13 +76,8 @@ export class BrowserVoiceProvider implements VoiceProvider {
             resolve();
           };
 
-          window.speechSynthesis.addEventListener(
-            "voiceschanged",
-            handleVoicesChanged,
-          );
-
           // Add a timeout to avoid hanging forever
-          setTimeout(() => {
+          const timeoutId = setTimeout(() => {
             if (!this.voicesInitialized) {
               this.voicesInitialized = true;
               window.speechSynthesis.removeEventListener(
@@ -84,6 +87,11 @@ export class BrowserVoiceProvider implements VoiceProvider {
               resolve();
             }
           }, 2000);
+
+          window.speechSynthesis.addEventListener(
+            "voiceschanged",
+            handleVoicesChanged,
+          );
         } else {
           this.voicesInitialized = true;
           resolve();
@@ -123,6 +131,7 @@ export class BrowserVoiceProvider implements VoiceProvider {
   private getBrowserVoicesForLanguage(
     lang: string,
     minVoices: number,
+    fallbackToAnyLanguage: boolean,
   ): SpeechSynthesisVoice[] {
     if (typeof window === "undefined" || !window.speechSynthesis) {
       return [];
@@ -131,30 +140,21 @@ export class BrowserVoiceProvider implements VoiceProvider {
     const allVoices = window.speechSynthesis.getVoices();
 
     // Try exact match first
-    const exactMatch = allVoices.filter((voice) => voice.lang === lang);
+    const normalizedLanguage = normalizeLanguageTag(lang);
+    const exactMatch = allVoices.filter(
+      (voice) => normalizeLanguageTag(voice.lang) === normalizedLanguage,
+    );
 
     if (exactMatch.length >= minVoices) {
       return exactMatch;
     }
 
-    // If the language has a region code (contains '-'), try matching just the language part
-    if (lang.includes("-")) {
-      const baseLanguage = lang.replace(/-.+/, "");
-      const baseMatches = allVoices.filter(
-        (voice) => voice.lang.replace(/-.+/, "") === baseLanguage,
-      );
-
-      if (baseMatches.length >= minVoices) {
-        return baseMatches;
-      }
-    }
-
-    // Fall back to prefix match using first two characters
-    const languageMatch = allVoices.filter((voice) =>
-      voice.lang.startsWith(lang.slice(0, 2)),
+    const primaryLanguage = getPrimaryLanguage(lang);
+    const languageMatch = allVoices.filter(
+      (voice) => getPrimaryLanguage(voice.lang) === primaryLanguage,
     );
 
-    if (languageMatch.length >= minVoices) {
+    if (languageMatch.length >= minVoices || !fallbackToAnyLanguage) {
       return languageMatch;
     }
 
@@ -184,7 +184,7 @@ export class BrowserSpeechSynthesisVoice implements Voice {
 
   /** The display name of the voice */
   get name() {
-    return this.voice.name.replace(/ (.+)$/, "");
+    return /^(.*?)\s+\(.+\)$/.exec(this.voice.name)?.[1] ?? this.voice.name;
   }
 
   /** The unique identifier for the voice */
@@ -194,8 +194,8 @@ export class BrowserSpeechSynthesisVoice implements Voice {
 
   /** The description of the voice (e.g., "English (US)") */
   get description() {
-    const match = / (.+)$/.exec(this.voice.name);
-    return match?.[1].replace(/\(Chinese \((.+?)\)\)/, "$1") ?? null;
+    const match = /^.*?\s+\((.+)\)$/.exec(this.voice.name);
+    return match?.[1].replace(/Chinese \((.+?)\)/, "$1") ?? null;
   }
 
   /**
@@ -225,14 +225,14 @@ class BrowserSpeechSynthesisUtterance implements Utterance {
   }
 
   /** Start speaking the utterance */
-  start() {
+  async start(): Promise<void> {
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.speak(this.utterance);
     }
   }
 
   /** Stop speaking the utterance */
-  stop() {
+  async stop(): Promise<void> {
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
@@ -246,6 +246,11 @@ class BrowserSpeechSynthesisUtterance implements Utterance {
   /** Set the callback for when the utterance finishes speaking */
   set onend(callback: () => void) {
     this.utterance.onend = callback;
+  }
+
+  /** Set the callback for playback errors */
+  set onerror(callback: (error: Error) => void) {
+    this.utterance.onerror = (event) => callback(new Error(event.error));
   }
 }
 

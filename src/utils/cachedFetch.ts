@@ -6,6 +6,66 @@ interface CachedFetchOptions extends RequestInit {
   };
 }
 
+async function serializeBody(body: BodyInit | null | undefined) {
+  if (body == null) {
+    return new Uint8Array();
+  }
+  if (typeof body === "string" || body instanceof URLSearchParams) {
+    return new TextEncoder().encode(body.toString());
+  }
+  if (body instanceof Blob) {
+    return new Uint8Array(await body.arrayBuffer());
+  }
+  if (body instanceof ArrayBuffer) {
+    return new Uint8Array(body);
+  }
+  if (ArrayBuffer.isView(body)) {
+    return new Uint8Array(body.buffer, body.byteOffset, body.byteLength);
+  }
+  return null;
+}
+
+async function createCacheKey(
+  url: string,
+  method: string,
+  headers: Headers,
+  body: BodyInit | null | undefined,
+): Promise<string | null> {
+  if (!globalThis.crypto?.subtle) {
+    return null;
+  }
+
+  const bodyBytes = await serializeBody(body);
+  if (!bodyBytes) {
+    return null;
+  }
+
+  const headerEntries: [string, string][] = [];
+  headers.forEach((value, key) => headerEntries.push([key, value]));
+  headerEntries.sort(([left], [right]) => left.localeCompare(right));
+  const metadataBytes = new TextEncoder().encode(
+    JSON.stringify({ headers: headerEntries, method, url }),
+  );
+  const fingerprint = new Uint8Array(
+    Uint32Array.BYTES_PER_ELEMENT + metadataBytes.length + bodyBytes.length,
+  );
+  new DataView(fingerprint.buffer).setUint32(0, metadataBytes.length);
+  fingerprint.set(metadataBytes, Uint32Array.BYTES_PER_ELEMENT);
+  fingerprint.set(
+    bodyBytes,
+    Uint32Array.BYTES_PER_ELEMENT + metadataBytes.length,
+  );
+
+  const digest = await crypto.subtle.digest("SHA-256", fingerprint);
+  const digestHex = Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  const cacheUrl = new URL(url);
+  cacheUrl.search = `__speech_provider_cache=${digestHex}`;
+  cacheUrl.hash = "";
+  return cacheUrl.toString();
+}
+
 /**
  * Enhanced fetch function that supports client-side response caching using the Cache API.
  * Responses are cached based on the URL and request options.
@@ -41,10 +101,12 @@ export async function cachedFetch(
 ): Promise<Response> {
   const { additionalHeaders, cacheOptions = {}, ...fetchOptions } = options;
   const { maxAge = 3600, skipCache = false } = cacheOptions; // Default to 1 hour
-  const headers = { ...fetchOptions.headers } as Record<string, string>;
+  const headers = new Headers(fetchOptions.headers);
 
   if (additionalHeaders) {
-    Object.assign(headers, additionalHeaders);
+    for (const [key, value] of Object.entries(additionalHeaders)) {
+      headers.set(key, value);
+    }
   }
 
   // Skip cache if requested
@@ -55,18 +117,21 @@ export async function cachedFetch(
     });
   }
 
-  // Create a cache key from the URL and request options
-  const cacheKey = JSON.stringify({
+  const cacheKey = await createCacheKey(
     url,
-    method: fetchOptions.method || "GET",
+    fetchOptions.method || "GET",
     headers,
-    body: fetchOptions.body,
-  });
+    fetchOptions.body,
+  );
+  if (!cacheKey) {
+    return fetch(url, { ...fetchOptions, headers });
+  }
 
   let cache: Cache | null = null;
 
   try {
-    cache = await caches.open("speech-provider-cache");
+    await caches.delete("speech-provider-cache");
+    cache = await caches.open("speech-provider-cache-v2");
 
     // Try to get from cache first
     const cachedResponse = await cache.match(cacheKey);

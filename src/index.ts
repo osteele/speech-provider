@@ -19,7 +19,7 @@
  * // Create and play an utterance
  * if (voices.length > 0) {
  *   const utterance = voices[0].createUtterance('Hello, world!');
- *   utterance.start();
+ *   await utterance.start();
  * }
  * ```
  *
@@ -28,7 +28,12 @@
 
 // Export main interfaces and functions
 export { getVoiceProvider } from "./VoiceProvider.js";
-export type { Utterance, Voice, VoiceProvider } from "./VoiceProvider.js";
+export type {
+  GetVoicesOptions,
+  Utterance,
+  Voice,
+  VoiceProvider,
+} from "./VoiceProvider.js";
 
 // Export browser voice provider
 export {

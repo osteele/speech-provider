@@ -1,5 +1,11 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { browserVoiceProvider } from "../src/BrowserVoiceProvider";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+  BrowserVoiceProvider,
+  browserVoiceProvider,
+} from "../src/BrowserVoiceProvider";
+
+const originalSpeechSynthesisUtterance = globalThis.SpeechSynthesisUtterance;
+const originalWindow = globalThis.window;
 
 describe("BrowserVoiceProvider", () => {
   // Mock the window.speechSynthesis object
@@ -28,6 +34,16 @@ describe("BrowserVoiceProvider", () => {
   ];
 
   beforeEach(() => {
+    globalThis.SpeechSynthesisUtterance = class {
+      lang = "";
+      onend: ((event: SpeechSynthesisEvent) => void) | null = null;
+      onerror: ((event: SpeechSynthesisErrorEvent) => void) | null = null;
+      onstart: ((event: SpeechSynthesisEvent) => void) | null = null;
+      voice: SpeechSynthesisVoice | null = null;
+
+      constructor(public text: string) {}
+    } as unknown as typeof SpeechSynthesisUtterance;
+
     // Create a mock for window.speechSynthesis
     global.window = {
       speechSynthesis: {
@@ -35,7 +51,12 @@ describe("BrowserVoiceProvider", () => {
         speak: mock(() => {}),
         cancel: mock(() => {}),
       },
-    } as unknown;
+    } as unknown as Window & typeof globalThis;
+  });
+
+  afterEach(() => {
+    globalThis.SpeechSynthesisUtterance = originalSpeechSynthesisUtterance;
+    globalThis.window = originalWindow;
   });
 
   test("getVoices returns voices for an exact language match", async () => {
@@ -46,7 +67,7 @@ describe("BrowserVoiceProvider", () => {
 
     expect(voices.length).toBe(1);
     expect(voices[0].name).toBe("Voice1");
-    expect(voices[0].description).toBe("(Description)");
+    expect(voices[0].description).toBe("Description");
     expect(voices[0].id).toBe("voice1");
     expect(voices[0].lang).toBe("en-US");
   });
@@ -66,6 +87,7 @@ describe("BrowserVoiceProvider", () => {
     const voices = await browserVoiceProvider.getVoices({
       lang: "fr-FR",
       minVoices: 1,
+      fallbackToAnyLanguage: true,
     });
 
     expect(voices.length).toBe(3);
@@ -89,8 +111,44 @@ describe("BrowserVoiceProvider", () => {
     expect(voice?.name).toBe("Voice2");
   });
 
-  // Skip this test in Node environment as it requires browser APIs
-  test.skip("createUtterance returns a functioning utterance", async () => {
+  test("getVoices does not return unrelated voices by default", async () => {
+    const voices = await browserVoiceProvider.getVoices({
+      lang: "fr-FR",
+      minVoices: 1,
+    });
+
+    expect(voices).toEqual([]);
+  });
+
+  test("waits for voices after an earlier server-side call", async () => {
+    const provider = new BrowserVoiceProvider();
+    globalThis.window = undefined as unknown as Window & typeof globalThis;
+    expect(await provider.getVoices({ lang: "en-US", minVoices: 1 })).toEqual(
+      [],
+    );
+
+    globalThis.window = {
+      speechSynthesis: {
+        getVoices: () => mockVoices,
+      },
+    } as unknown as Window & typeof globalThis;
+    const voices = await provider.getVoices({ lang: "en-US", minVoices: 1 });
+    expect(voices).toHaveLength(1);
+  });
+
+  test("preserves multi-word voice names", async () => {
+    globalThis.window.speechSynthesis.getVoices = () => [
+      {
+        ...mockVoices[0],
+        name: "Microsoft David Desktop",
+      } as SpeechSynthesisVoice,
+    ];
+    const provider = new BrowserVoiceProvider();
+    const [voice] = await provider.getVoices({ lang: "en-US", minVoices: 1 });
+    expect(voice.name).toBe("Microsoft David Desktop");
+  });
+
+  test("createUtterance returns a functioning utterance", async () => {
     const voices = await browserVoiceProvider.getVoices({
       lang: "en-US",
       minVoices: 1,
@@ -99,11 +157,11 @@ describe("BrowserVoiceProvider", () => {
     const utterance = voices[0].createUtterance("Hello world");
 
     // Test start method
-    utterance.start();
+    await utterance.start();
     expect(global.window.speechSynthesis.speak).toHaveBeenCalled();
 
     // Test stop method
-    utterance.stop();
+    await utterance.stop();
     expect(global.window.speechSynthesis.cancel).toHaveBeenCalled();
 
     // Test event handlers
@@ -113,7 +171,10 @@ describe("BrowserVoiceProvider", () => {
     utterance.onend = onEndMock;
 
     // Verify the handlers were set
-    expect(utterance.utterance.onstart).toBe(onStartMock);
-    expect(utterance.utterance.onend).toBe(onEndMock);
+    const browserUtterance = utterance as unknown as {
+      utterance: SpeechSynthesisUtterance;
+    };
+    expect(browserUtterance.utterance.onstart).toBe(onStartMock);
+    expect(browserUtterance.utterance.onend).toBe(onEndMock);
   });
 });

@@ -30,13 +30,14 @@ async function basicBrowserExample() {
     // Add event listeners
     utterance.onstart = () => console.log("Started speaking");
     utterance.onend = () => console.log("Finished speaking");
+    utterance.onerror = (error) => console.error("Playback failed", error);
 
     // Start speaking
-    utterance.start();
+    await utterance.start();
 
     // Stop after 5 seconds (for demo purposes)
-    setTimeout(() => {
-      utterance.stop();
+    setTimeout(async () => {
+      await utterance.stop();
       console.log("Speech stopped manually");
     }, 5000);
   } else {
@@ -69,11 +70,11 @@ async function languageMatchingExample() {
         ja: "こんにちは、今日はお元気ですか？",
       };
 
-      const langCode = lang.slice(0, 2);
+      const langCode = new Intl.Locale(lang).language;
       const greeting = greetings[langCode] || "Hello";
 
       const utterance = voice.createUtterance(greeting);
-      utterance.start();
+      await utterance.start();
 
       // Wait for speech to complete before continuing
       await new Promise((resolve) => {

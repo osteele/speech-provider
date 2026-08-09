@@ -20,13 +20,7 @@ export interface VoiceProvider {
    * @param options.minVoices - The minimum number of voices to return
    * @returns The voices for the given language code
    */
-  getVoices({
-    lang,
-    minVoices,
-  }: {
-    lang: string;
-    minVoices: number;
-  }): Promise<Voice[]>;
+  getVoices(options: GetVoicesOptions): Promise<Voice[]>;
 
   /**
    * Get the default voice for a given language code.
@@ -64,13 +58,24 @@ export interface Voice {
  */
 export interface Utterance {
   /** Start speaking the utterance */
-  start(): void;
+  start(): Promise<void>;
   /** Stop speaking the utterance */
-  stop(): void;
+  stop(): Promise<void>;
   /** Set the callback for when the utterance starts speaking */
   set onstart(callback: () => void);
   /** Set the callback for when the utterance finishes speaking */
   set onend(callback: () => void);
+  /** Set the callback for asynchronous playback errors */
+  set onerror(callback: (error: Error) => void);
+}
+
+export interface GetVoicesOptions {
+  /** The requested BCP-47 language tag. */
+  lang: string;
+  /** The desired number of matching voices. */
+  minVoices: number;
+  /** Return unrelated voices when too few language matches exist. */
+  fallbackToAnyLanguage?: boolean;
 }
 
 /**

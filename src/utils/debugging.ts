@@ -1,25 +1,3 @@
-import type { z } from "zod";
-
-/**
- * Validates an array of objects against a Zod schema
- * @param objects - The array of objects to validate
- * @param schema - The Zod schema to validate against
- * @throws {Error} If validation fails
- */
-export function checkObjectsAgainstSchema<T>(
-  objects: unknown[],
-  schema: z.ZodType<T>,
-): void {
-  for (const object of objects) {
-    try {
-      schema.parse(object);
-    } catch (error) {
-      console.error("Schema validation failed:", error);
-      throw error;
-    }
-  }
-}
-
 interface PrintDistinctPropertyValuesOptions {
   omit?: string[];
 }

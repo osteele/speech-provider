@@ -45,6 +45,13 @@ const provider = getVoiceProvider({
 // Get voices for a specific language
 const voices = await provider.getVoices({ lang: 'en-US', minVoices: 1 });
 
+// Explicitly fall back to unrelated voices when no language match exists
+const fallbackVoices = await provider.getVoices({
+  lang: 'en-US',
+  minVoices: 1,
+  fallbackToAnyLanguage: true
+});
+
 // Get default voice for a language
 const defaultVoice = await provider.getDefaultVoice({ lang: 'en-US' });
 
@@ -53,7 +60,8 @@ if (defaultVoice) {
   const utterance = defaultVoice.createUtterance('Hello, world!');
   utterance.onstart = () => console.log('Started speaking');
   utterance.onend = () => console.log('Finished speaking');
-  utterance.start();
+  utterance.onerror = error => console.error(error);
+  await utterance.start();
 }
 ```
 
@@ -63,7 +71,8 @@ if (defaultVoice) {
 - Automatic fallback to browser voices when Eleven Labs API key is not provided
 - Typesafe API with TypeScript support
 - Simple voice selection by language
-- Event listeners for speech start and end events
+- Event listeners for speech start, end, and error events
+- Cancellable Eleven Labs requests and playback
 - Efficient caching of Eleven Labs API responses using the browser's Cache API
 - Configurable cache duration for Eleven Labs responses
 - Audio volume normalization for Eleven Labs voices to ensure consistent volume levels
@@ -85,7 +94,7 @@ The package includes an interactive example in the `examples` directory that dem
 3. Run `bunx serve examples` and open http://localhost:3000/demo.html
 
 The example includes:
-- API key management for Eleven Labs
+- Session-only API key management for Eleven Labs
 - Provider selection (Browser/Eleven Labs)
 - Language selection with system language detection
 - Voice selection with descriptions
@@ -116,7 +125,6 @@ function createElevenLabsVoiceProvider(
   apiKey: string,
   baseUrl?: string,
   options?: {
-    validateResponses?: boolean;
     printVoiceProperties?: boolean;
     cacheMaxAge?: number | null; // Cache duration in seconds (default: 1 hour). Set to null to disable caching.
     normalizeVolume?: boolean; // Enable volume normalization for more consistent audio levels (default: false)
@@ -132,6 +140,7 @@ The library implements efficient caching for Eleven Labs API responses using the
 - Eleven Labs responses are cached using the browser's Cache API with a default duration of 1 hour
 - Cache duration can be configured when creating the provider
 - Cached responses are automatically invalidated after the specified duration
+- Cache keys use SHA-256 fingerprints and do not store raw API keys or utterance text
 - Cache can be disabled by setting `cacheMaxAge: null` in the provider options
 - The Cache API provides better performance than IndexedDB for network requests
 
@@ -164,6 +173,14 @@ const provider = getVoiceProvider({
   cacheMaxAge: 0
 });
 ```
+
+### Language matching
+
+Language tags are matched using BCP-47 primary languages, so regional variants
+such as `en-US` and `en-GB` can match when an exact regional voice is not
+available. Unrelated voices are excluded by default. Set
+`fallbackToAnyLanguage: true` to request the previous cross-language fallback
+behavior when fewer than `minVoices` matches are available.
 
 ### Volume Normalization
 
@@ -200,7 +217,11 @@ const provider = createElevenLabsVoiceProvider('your-api-key', undefined, {
 ```typescript
 interface VoiceProvider {
   name: string;
-  getVoices({ lang, minVoices }: { lang: string; minVoices: number }): Promise<Voice[]>;
+  getVoices(options: {
+    lang: string;
+    minVoices: number;
+    fallbackToAnyLanguage?: boolean;
+  }): Promise<Voice[]>;
   getDefaultVoice({ lang }: { lang: string }): Promise<Voice | null>;
 }
 ```
@@ -222,10 +243,11 @@ interface Voice {
 
 ```typescript
 interface Utterance {
-  start(): void;
-  stop(): void;
+  start(): Promise<void>;
+  stop(): Promise<void>;
   set onstart(callback: () => void);
   set onend(callback: () => void);
+  set onerror(callback: (error: Error) => void);
 }
 ```
 
