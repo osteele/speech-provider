@@ -41,7 +41,9 @@ async function createCacheKey(
   }
 
   const headerEntries: [string, string][] = [];
-  headers.forEach((value, key) => headerEntries.push([key, value]));
+  headers.forEach((value, key) => {
+    headerEntries.push([key, value]);
+  });
   headerEntries.sort(([left], [right]) => left.localeCompare(right));
   const metadataBytes = new TextEncoder().encode(
     JSON.stringify({ headers: headerEntries, method, url }),

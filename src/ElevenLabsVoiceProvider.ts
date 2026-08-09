@@ -2,15 +2,15 @@ import {
   type ElevenLabsVoiceData,
   ElevenLabsVoicesResponseSchema,
 } from "./ElevenLabsTypes.js";
+import { cachedFetch } from "./utils/cachedFetch.js";
+import { printDistinctPropertyValues } from "./utils/debugging.js";
+import { getPrimaryLanguage } from "./utils/language.js";
 import type {
   GetVoicesOptions,
   Utterance,
   Voice,
   VoiceProvider,
 } from "./VoiceProvider.js";
-import { cachedFetch } from "./utils/cachedFetch.js";
-import { printDistinctPropertyValues } from "./utils/debugging.js";
-import { getPrimaryLanguage } from "./utils/language.js";
 
 /** The base URL for the Eleven Labs API */
 export const ELEVEN_LABS_BASE_URL = "https://api.elevenlabs.io/v1";

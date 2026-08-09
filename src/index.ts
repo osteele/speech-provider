@@ -26,27 +26,25 @@
  * @packageDocumentation
  */
 
-// Export main interfaces and functions
-export { getVoiceProvider } from "./VoiceProvider.js";
+// Export browser voice provider
+export {
+  BrowserSpeechSynthesisVoice,
+  BrowserVoiceProvider,
+  browserVoiceProvider,
+} from "./BrowserVoiceProvider.js";
+export type { ElevenLabsVoiceData } from "./ElevenLabsTypes.js";
+// Export ElevenLabs voice provider
+export {
+  createElevenLabsVoiceProvider,
+  ElevenLabsUtterance,
+  ElevenLabsVoice,
+  ElevenLabsVoiceProvider,
+} from "./ElevenLabsVoiceProvider.js";
 export type {
   GetVoicesOptions,
   Utterance,
   Voice,
   VoiceProvider,
 } from "./VoiceProvider.js";
-
-// Export browser voice provider
-export {
-  BrowserVoiceProvider,
-  browserVoiceProvider,
-  BrowserSpeechSynthesisVoice,
-} from "./BrowserVoiceProvider.js";
-
-// Export ElevenLabs voice provider
-export {
-  createElevenLabsVoiceProvider,
-  ElevenLabsVoice,
-  ElevenLabsUtterance,
-  ElevenLabsVoiceProvider,
-} from "./ElevenLabsVoiceProvider.js";
-export type { ElevenLabsVoiceData } from "./ElevenLabsTypes.js";
+// Export main interfaces and functions
+export { getVoiceProvider } from "./VoiceProvider.js";

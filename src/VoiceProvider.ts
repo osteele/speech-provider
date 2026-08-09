@@ -1,7 +1,7 @@
 import { browserVoiceProvider } from "./BrowserVoiceProvider.js";
 import {
-  ELEVEN_LABS_BASE_URL,
   createElevenLabsVoiceProvider,
+  ELEVEN_LABS_BASE_URL,
 } from "./ElevenLabsVoiceProvider.js";
 
 /**

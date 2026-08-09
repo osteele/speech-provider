@@ -251,6 +251,49 @@ interface Utterance {
 }
 ```
 
+## Browser Compatibility
+
+### Browser Speech Synthesis
+
+The browser speech synthesis provider (`BrowserVoiceProvider`) is supported in all modern browsers:
+
+- **Chrome/Edge**: Full support (voices load asynchronously)
+- **Firefox**: Full support
+- **Safari**: Full support (iOS and macOS)
+- **Opera**: Full support
+
+**Note**: Voice availability and quality vary by browser and operating system. Chrome and Edge typically offer the best selection of voices.
+
+### ElevenLabs Provider
+
+The ElevenLabs provider (`ElevenLabsVoiceProvider`) requires:
+
+- **Cache API**: For caching API responses (supported in modern browsers)
+- **Fetch API**: For making API requests (supported in all modern browsers)
+- **Audio API**: For playing synthesized speech (supported in all modern browsers)
+
+### Minimum Requirements
+
+- Modern browser with ES2022 support
+- Cache API support (for ElevenLabs caching)
+- No Internet Explorer support
+
+### Server-Side Rendering (SSR)
+
+The library is designed for client-side use. When used in SSR environments:
+
+- Browser voice provider gracefully handles the absence of `window.speechSynthesis`
+- Returns empty arrays when browser APIs are unavailable
+- Safe to import in SSR frameworks (Next.js, Nuxt, etc.) but should only be used client-side
+
+## Contributing
+
+Contributions are welcome! Please read the [CONTRIBUTING.md](CONTRIBUTING.md) guide for details on our code of conduct and the process for submitting pull requests.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a list of changes and version history.
+
 ## License
 
 Copyright 2025 by Oliver Steele

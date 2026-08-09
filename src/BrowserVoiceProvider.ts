@@ -1,10 +1,10 @@
+import { getPrimaryLanguage, normalizeLanguageTag } from "./utils/language.js";
 import type {
   GetVoicesOptions,
   Utterance,
   Voice,
   VoiceProvider,
 } from "./VoiceProvider.js";
-import { getPrimaryLanguage, normalizeLanguageTag } from "./utils/language.js";
 
 /**
  * A voice provider that uses the browser's built-in speech synthesis.
