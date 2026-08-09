@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-09
+
+### Changed
+
+- Replaced the older ElevenLabs Turbo v2.5 synthesis model with the recommended
+  Flash v2.5 model for lower latency and equivalent language coverage.
+
 ## [0.2.0] - 2026-08-09
 
 ### Fixed
@@ -51,7 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Event listeners for speech events
 - Documentation with TypeDoc
 
-[Unreleased]: https://github.com/osteele/speech-provider/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/osteele/speech-provider/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/osteele/speech-provider/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/osteele/speech-provider/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/osteele/speech-provider/releases/tag/v0.1.1
 [0.1.0]: https://github.com/osteele/speech-provider/releases/tag/v0.1.0

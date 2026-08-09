@@ -14,6 +14,7 @@ import type {
 
 /** The base URL for the Eleven Labs API */
 export const ELEVEN_LABS_BASE_URL = "https://api.elevenlabs.io/v1";
+export const ELEVEN_LABS_MODEL_ID = "eleven_flash_v2_5";
 const ELEVEN_LABS_VOICES_URL = "https://api.elevenlabs.io/v2/voices";
 
 function getVoiceLanguages(voice: ElevenLabsVoiceData): string[] {
@@ -311,7 +312,7 @@ export class ElevenLabsUtterance implements Utterance {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model_id: "eleven_turbo_v2_5",
+            model_id: ELEVEN_LABS_MODEL_ID,
             language_code: this.languageCode,
             text: this.text,
           }),

@@ -261,8 +261,9 @@ describe("ElevenLabsVoiceProvider", () => {
 
   test("uses the custom base URL for voice discovery and synthesis", async () => {
     const requestedUrls: string[] = [];
+    const requestedModels: string[] = [];
     setFetch(
-      mock(async (input: string | URL | Request) => {
+      mock(async (input: string | URL | Request, init?: RequestInit) => {
         const url = input.toString();
         requestedUrls.push(url);
         if (url.endsWith("/voices")) {
@@ -282,6 +283,8 @@ describe("ElevenLabsVoiceProvider", () => {
             }),
           } as Response;
         }
+        const body = JSON.parse(String(init?.body)) as { model_id: string };
+        requestedModels.push(body.model_id);
         return new Response(new Blob(["audio"]), { status: 200 });
       }),
     );
@@ -312,6 +315,7 @@ describe("ElevenLabsVoiceProvider", () => {
       "https://proxy.example/v1/voices",
       "https://proxy.example/v1/text-to-speech/voice1",
     ]);
+    expect(requestedModels).toEqual(["eleven_flash_v2_5"]);
   });
 });
 

@@ -1,6 +1,6 @@
 {
   "name": "speech-provider",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "packageManager": "bun@1.3.14",
   "description": "A unified interface for browser speech synthesis and Eleven Labs voices",
   "homepage": "https://github.com/osteele/speech-provider",
