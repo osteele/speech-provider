@@ -27,15 +27,15 @@
  */
 
 // Export main interfaces and functions
-export { getVoiceProvider } from "./VoiceProvider";
-export type { VoiceProvider, Voice, Utterance } from "./VoiceProvider";
+export { getVoiceProvider } from "./VoiceProvider.js";
+export type { Utterance, Voice, VoiceProvider } from "./VoiceProvider.js";
 
 // Export browser voice provider
 export {
   BrowserVoiceProvider,
   browserVoiceProvider,
   BrowserSpeechSynthesisVoice,
-} from "./BrowserVoiceProvider";
+} from "./BrowserVoiceProvider.js";
 
 // Export ElevenLabs voice provider
 export {
@@ -43,5 +43,5 @@ export {
   ElevenLabsVoice,
   ElevenLabsUtterance,
   ElevenLabsVoiceProvider,
-} from "./ElevenLabsVoiceProvider";
-export type { ElevenLabsVoiceData } from "./ElevenLabsTypes";
+} from "./ElevenLabsVoiceProvider.js";
+export type { ElevenLabsVoiceData } from "./ElevenLabsTypes.js";

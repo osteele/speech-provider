@@ -1,10 +1,19 @@
-import { describe, expect, test, mock } from "bun:test";
-import { ElevenLabsVoiceProvider, ELEVEN_LABS_BASE_URL } from "../src/ElevenLabsVoiceProvider";
+import { afterEach, describe, expect, mock, test } from "bun:test";
+import {
+  ELEVEN_LABS_BASE_URL,
+  ElevenLabsUtterance,
+  ElevenLabsVoiceProvider,
+} from "../src/ElevenLabsVoiceProvider";
+
+const originalAudio = globalThis.Audio;
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+  globalThis.Audio = originalAudio;
+  globalThis.fetch = originalFetch;
+});
 
 describe("ElevenLabsVoiceProvider", () => {
-  // Store the original fetch function
-  const originalFetch = global.fetch;
-
   test("creates a provider with default options", () => {
     const provider = new ElevenLabsVoiceProvider("fake-api-key");
     expect(provider.name).toBe("ElevenLabs");
@@ -12,13 +21,17 @@ describe("ElevenLabsVoiceProvider", () => {
   });
 
   test("creates a provider with custom options", () => {
-    const provider = new ElevenLabsVoiceProvider("fake-api-key", ELEVEN_LABS_BASE_URL, {
-      normalizeVolume: true,
-      validateResponses: true,
-      printVoiceProperties: true,
-      cacheMaxAge: 7200,
-    });
-    
+    const provider = new ElevenLabsVoiceProvider(
+      "fake-api-key",
+      ELEVEN_LABS_BASE_URL,
+      {
+        normalizeVolume: true,
+        validateResponses: true,
+        printVoiceProperties: true,
+        cacheMaxAge: 7200,
+      },
+    );
+
     expect(provider.normalizeVolume).toBe(true);
   });
 
@@ -46,13 +59,13 @@ describe("ElevenLabsVoiceProvider", () => {
           ],
         }),
       }));
-      
+
       // Replace global fetch with our mock
       global.fetch = mockFetch;
 
       const provider = new ElevenLabsVoiceProvider("fake-api-key");
       const voices = await provider.getVoices({ lang: "en-US", minVoices: 1 });
-      
+
       expect(voices.length).toBe(1);
       expect(voices[0].id).toBe("voice1");
       expect(voices[0].name).toBe("Voice 1");
@@ -81,13 +94,13 @@ describe("ElevenLabsVoiceProvider", () => {
           ],
         }),
       }));
-      
+
       // Replace global fetch with our mock
       global.fetch = mockFetch;
 
       const provider = new ElevenLabsVoiceProvider("fake-api-key");
       const voices = await provider.getVoices({ lang: "en-US", minVoices: 1 });
-      
+
       // Should return all voices if none match and minVoices is not satisfied
       expect(voices.length).toBe(2);
     });
@@ -100,16 +113,16 @@ describe("ElevenLabsVoiceProvider", () => {
         statusText: "Unauthorized",
         json: async () => ({ error: "Invalid API key" }),
       }));
-      
+
       // Replace global fetch with our mock
       global.fetch = mockFetch;
 
       const provider = new ElevenLabsVoiceProvider("fake-api-key");
-      
+
       // Should throw a descriptive error
-      await expect(provider.getVoices({ lang: "en-US", minVoices: 1 })).rejects.toThrow(
-        "Failed to fetch voices: 401 Unauthorized"
-      );
+      await expect(
+        provider.getVoices({ lang: "en-US", minVoices: 1 }),
+      ).rejects.toThrow("Invalid or missing API key");
     });
 
     test("handles malformed API response", async () => {
@@ -123,16 +136,16 @@ describe("ElevenLabsVoiceProvider", () => {
           result: "success",
         }),
       }));
-      
+
       // Replace global fetch with our mock
       global.fetch = mockFetch;
 
       const provider = new ElevenLabsVoiceProvider("fake-api-key");
-      
+
       // Should throw a descriptive error
-      await expect(provider.getVoices({ lang: "en-US", minVoices: 1 })).rejects.toThrow(
-        "Invalid response format from Eleven Labs API"
-      );
+      await expect(
+        provider.getVoices({ lang: "en-US", minVoices: 1 }),
+      ).rejects.toThrow("Invalid response format from Eleven Labs API");
     });
 
     test("handles voices with missing properties", async () => {
@@ -161,13 +174,13 @@ describe("ElevenLabsVoiceProvider", () => {
           ],
         }),
       }));
-      
+
       // Replace global fetch with our mock
       global.fetch = mockFetch;
 
       const provider = new ElevenLabsVoiceProvider("fake-api-key");
       const voices = await provider.getVoices({ lang: "en-US", minVoices: 1 });
-      
+
       // Should handle missing properties without crashing
       expect(voices.length).toBe(2); // Should include all voices since none match
     });
@@ -182,13 +195,13 @@ describe("ElevenLabsVoiceProvider", () => {
           voices: [],
         }),
       }));
-      
+
       // Replace global fetch with our mock
       global.fetch = mockFetch;
 
       const provider = new ElevenLabsVoiceProvider("fake-api-key");
       const voices = await provider.getVoices({ lang: "en-US", minVoices: 1 });
-      
+
       // Should return an empty array
       expect(voices.length).toBe(0);
     });
@@ -201,22 +214,91 @@ describe("ElevenLabsVoiceProvider", () => {
         statusText: "OK",
         json: async () => null,
       }));
-      
+
       // Replace global fetch with our mock
       global.fetch = mockFetch;
 
       const provider = new ElevenLabsVoiceProvider("fake-api-key");
-      
+
       // Should throw a descriptive error
-      await expect(provider.getVoices({ lang: "en-US", minVoices: 1 })).rejects.toThrow(
-        "Invalid response format from Eleven Labs API"
-      );
+      await expect(
+        provider.getVoices({ lang: "en-US", minVoices: 1 }),
+      ).rejects.toThrow("Invalid response format from Eleven Labs API");
     });
   });
-  
-  // Add cleanup test that runs last
-  test("cleanup: restore original fetch", () => {
-    // Restore the original fetch function
-    global.fetch = originalFetch;
+
+  test("uses the custom base URL for voice discovery and synthesis", async () => {
+    const requestedUrls: string[] = [];
+    globalThis.fetch = mock(async (input: string | URL | Request) => {
+      const url = input.toString();
+      requestedUrls.push(url);
+      if (url.includes("/voices?")) {
+        return {
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          json: async () => ({
+            voices: [
+              {
+                voice_id: "voice1",
+                name: "Voice 1",
+                labels: { language: "en" },
+                description: "A test voice",
+              },
+            ],
+          }),
+        } as Response;
+      }
+      return new Response(new Blob(["audio"]), { status: 200 });
+    });
+
+    class FakeAudio {
+      onended: (() => void) | null = null;
+      onplay: (() => void) | null = null;
+
+      pause() {}
+
+      async play() {
+        this.onplay?.();
+      }
+    }
+
+    globalThis.Audio = FakeAudio as unknown as typeof Audio;
+
+    const provider = new ElevenLabsVoiceProvider(
+      "fake-api-key",
+      "https://proxy.example/v1",
+      { cacheMaxAge: null },
+    );
+    const [voice] = await provider.getVoices({ lang: "en-US", minVoices: 1 });
+    await voice.createUtterance("Hello").start();
+
+    expect(requestedUrls).toEqual([
+      "https://proxy.example/v1/voices?language=en",
+      "https://proxy.example/v1/text-to-speech/voice1",
+    ]);
+  });
+});
+
+describe("ElevenLabsUtterance", () => {
+  test("reports synthesis HTTP errors before decoding audio", async () => {
+    globalThis.fetch = mock(
+      async () =>
+        new Response("rate limited", {
+          status: 429,
+          statusText: "Too Many Requests",
+        }),
+    );
+    const utterance = new ElevenLabsUtterance(
+      "fake-api-key",
+      "voice1",
+      "en",
+      "Hello",
+      null,
+    );
+
+    await expect(utterance.start()).rejects.toThrow(
+      "Failed to synthesize speech: 429 Too Many Requests",
+    );
   });
 });

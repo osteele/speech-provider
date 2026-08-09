@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { browserVoiceProvider } from "../src/BrowserVoiceProvider";
+import type { ElevenLabsVoiceProvider } from "../src/ElevenLabsVoiceProvider";
 import { getVoiceProvider } from "../src/VoiceProvider";
 
 describe("getVoiceProvider", () => {
@@ -16,5 +17,16 @@ describe("getVoiceProvider", () => {
   test("returns ElevenLabsVoiceProvider when elevenLabs API key is provided", () => {
     const provider = getVoiceProvider({ elevenLabsApiKey: "fake-api-key" });
     expect(provider.name).toBe("ElevenLabs");
+  });
+
+  test("forwards ElevenLabs provider options", () => {
+    const provider = getVoiceProvider({
+      elevenLabsApiKey: "fake-api-key",
+      cacheMaxAge: null,
+      normalizeVolume: true,
+    }) as ElevenLabsVoiceProvider;
+
+    expect(provider.cacheMaxAge).toBeNull();
+    expect(provider.normalizeVolume).toBe(true);
   });
 });

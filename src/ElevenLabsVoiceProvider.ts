@@ -1,13 +1,13 @@
 import {
-  ElevenLabsVoiceData,
+  type ElevenLabsVoiceData,
   ElevenLabsVoiceDataSchema,
-} from "./ElevenLabsTypes";
-import { Utterance, Voice, VoiceProvider } from "./VoiceProvider";
-import { cachedFetch } from "./utils/cachedFetch";
+} from "./ElevenLabsTypes.js";
+import type { Utterance, Voice, VoiceProvider } from "./VoiceProvider.js";
+import { cachedFetch } from "./utils/cachedFetch.js";
 import {
   checkObjectsAgainstSchema,
   printDistinctPropertyValues,
-} from "./utils/debugging";
+} from "./utils/debugging.js";
 
 /** The base URL for the Eleven Labs API */
 export const ELEVEN_LABS_BASE_URL = "https://api.elevenlabs.io/v1";
@@ -38,7 +38,7 @@ export const ELEVEN_LABS_BASE_URL = "https://api.elevenlabs.io/v1";
 export class ElevenLabsVoiceProvider implements VoiceProvider {
   name = "ElevenLabs";
 
-  private baseUrl: string;
+  readonly baseUrl: string;
   private validateResponses: boolean;
   private printVoiceProperties: boolean;
   readonly cacheMaxAge: number | null; // Make it public and readonly
@@ -86,7 +86,8 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
     this.baseUrl = baseUrl;
     this.validateResponses = options.validateResponses || false;
     this.printVoiceProperties = options.printVoiceProperties || false;
-    this.cacheMaxAge = options.cacheMaxAge ?? 3600; // Default to 1 hour, null to disable
+    this.cacheMaxAge =
+      options.cacheMaxAge === undefined ? 3600 : options.cacheMaxAge;
     this._normalizeVolume = options.normalizeVolume ?? false;
   }
 
@@ -113,6 +114,11 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
     );
 
     if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error(
+          "Invalid or missing API key. Please check your Eleven Labs API key.",
+        );
+      }
       throw new Error(
         `Failed to fetch voices: ${response.status} ${response.statusText}`,
       );
@@ -235,7 +241,10 @@ export class ElevenLabsVoice implements Voice {
       this.voiceData.labels.language,
       text,
       this.cacheMaxAge,
-      { normalizeVolume: this.normalizeVolume },
+      {
+        baseUrl: this.provider.baseUrl,
+        normalizeVolume: this.normalizeVolume,
+      },
     );
   }
 }
@@ -250,6 +259,7 @@ export class ElevenLabsUtterance implements Utterance {
   private cacheMaxAge: number | null;
   private normalizeVolume: boolean;
   private audioContext: AudioContext | null = null;
+  private baseUrl: string;
 
   constructor(
     private apiKey: string,
@@ -258,10 +268,12 @@ export class ElevenLabsUtterance implements Utterance {
     private text: string,
     cacheMaxAge: number | null = 3600, // Default to 1 hour, null to disable
     options: {
+      baseUrl?: string;
       normalizeVolume?: boolean;
     } = {},
   ) {
     this.cacheMaxAge = cacheMaxAge;
+    this.baseUrl = options.baseUrl ?? ELEVEN_LABS_BASE_URL;
     this.normalizeVolume = options.normalizeVolume ?? false;
   }
 
@@ -271,7 +283,7 @@ export class ElevenLabsUtterance implements Utterance {
    */
   async start() {
     const response = await cachedFetch(
-      `${ELEVEN_LABS_BASE_URL}/text-to-speech/${this.voiceId}`,
+      `${this.baseUrl}/text-to-speech/${this.voiceId}`,
       {
         method: "POST",
         headers: {
@@ -288,6 +300,17 @@ export class ElevenLabsUtterance implements Utterance {
         },
       },
     );
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error(
+          "Invalid or missing API key. Please check your Eleven Labs API key.",
+        );
+      }
+      throw new Error(
+        `Failed to synthesize speech: ${response.status} ${response.statusText}`,
+      );
+    }
 
     const audioBlob = await response.blob();
 

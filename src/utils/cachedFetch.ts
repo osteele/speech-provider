@@ -63,9 +63,10 @@ export async function cachedFetch(
     body: fetchOptions.body,
   });
 
+  let cache: Cache | null = null;
+
   try {
-    // Open the cache
-    const cache = await caches.open("speech-provider-cache");
+    cache = await caches.open("speech-provider-cache");
 
     // Try to get from cache first
     const cachedResponse = await cache.match(cacheKey);
@@ -78,37 +79,33 @@ export async function cachedFetch(
         }
       }
     }
+  } catch (error) {
+    console.warn("Cache read error, fetching from the network:", error);
+  }
 
-    // If not in cache or expired, fetch from network
-    const response = await fetch(url, {
-      ...fetchOptions,
-      headers,
-    });
+  const response = await fetch(url, {
+    ...fetchOptions,
+    headers,
+  });
 
-    // Clone the response before caching (responses can only be read once)
+  if (!cache || !response.ok) {
+    return response;
+  }
+
+  try {
     const responseToCache = response.clone();
-
-    // Add cache timestamp header
     const headersWithTimestamp = new Headers(responseToCache.headers);
     headersWithTimestamp.set("x-cache-timestamp", Date.now().toString());
-
-    // Create a new response with the timestamp header
     const responseWithTimestamp = new Response(responseToCache.body, {
       status: responseToCache.status,
       statusText: responseToCache.statusText,
       headers: headersWithTimestamp,
     });
 
-    // Cache the response
     await cache.put(cacheKey, responseWithTimestamp);
-
-    return response;
   } catch (error) {
-    // If caching fails, fall back to regular fetch
-    console.warn("Cache error, falling back to regular fetch:", error);
-    return fetch(url, {
-      ...fetchOptions,
-      headers,
-    });
+    console.warn("Cache write error; returning the network response:", error);
   }
+
+  return response;
 }

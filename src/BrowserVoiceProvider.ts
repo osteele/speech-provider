@@ -1,4 +1,4 @@
-import { Utterance, Voice, VoiceProvider } from "./VoiceProvider";
+import type { Utterance, Voice, VoiceProvider } from "./VoiceProvider.js";
 
 /**
  * A voice provider that uses the browser's built-in speech synthesis.
